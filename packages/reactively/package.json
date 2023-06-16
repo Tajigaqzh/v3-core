@@ -1,0 +1,17 @@
+{
+  "name": "@vue/reactively",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "buildOptions": {
+    "name": "vueReactively",
+    "formats": [
+      "esm-bundler",
+      "cjs",
+      "global"
+    ]
+  },
+  "dependencies": {
+    "@vue/shared": "1.0.0"
+  }
+}
