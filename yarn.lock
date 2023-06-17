@@ -23,7 +23,7 @@
     chalk "^2.0.0"
     js-tokens "^4.0.0"
 
-"@commitlint/cli@^17.6.3":
+"@commitlint/cli@^17.6.5":
   version "17.6.5"
   resolved "https://registry.npmmirror.com/@commitlint/cli/-/cli-17.6.5.tgz#3a8abd6499f9d4aeafe3bf9201338ccb868a14b9"
   integrity sha512-3PQrWr/uo6lzF5k7n5QuosCYnzaxP9qGBp3jhWP0Vmsa7XA6wrl9ccPqfQyXpSbQE3zBROVO3TDqgPKe4tfmLQ==
@@ -39,7 +39,7 @@
     resolve-global "1.0.0"
     yargs "^17.0.0"
 
-"@commitlint/config-conventional@^17.6.3":
+"@commitlint/config-conventional@^17.6.5":
   version "17.6.5"
   resolved "https://registry.npmmirror.com/@commitlint/config-conventional/-/config-conventional-17.6.5.tgz#a8ec286e634a071329fe45dc4955032c2176aeb5"
   integrity sha512-Xl9H9KLl86NZm5CYNTNF9dcz1xelE/EbvhWIWcYxG/rn3UWYWdWmmnX2q6ZduNdLFSGbOxzUpIx61j5zxbeXxg==

@@ -1,5 +1,4 @@
-
-export enum ReactiveFlags {
+export const enum ReactiveFlags {
     //跳过
     SKIP = "__v_skip",
     //是否是响应式
@@ -11,7 +10,6 @@ export enum ReactiveFlags {
     //proxy对应的源数据
     RAW = "__v_raw",
 }
-
 
 export interface Target {
     [ReactiveFlags.SKIP]?: boolean; //不做响应式处理的数据

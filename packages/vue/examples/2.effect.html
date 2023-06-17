@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    
+</head>
+<body>
+    <script src="../../reactively/dist/reactively.global.js"></script>
+    <script>
+        const {reactive,effect} = vueReactively
+        let obj ={name:'zs',age:{m:11}}
+        const state = reactive(obj)
+
+        effect(()=>{
+            state.name
+        })
+    </script>
+</body>
+</html>
