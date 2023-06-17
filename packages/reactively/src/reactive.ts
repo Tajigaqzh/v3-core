@@ -70,36 +70,18 @@ function createReactObject(target: Target, isReadonly: boolean, baseHandlers: Pr
 export function isReadonly(value: unknown): boolean {
     return !!(value && (value as Target)[ReactiveFlags.IS_READONLY]);
 }
+/*
+面试响应式api的proxy和ref区别
+proxy 、懒执行（性能优化）
+
+vuex 5 state  getter actions mutations
+计算属性
+state响应式，通过vue的proxy代理
+getter计算属性缓存，this拿到里面的值是 通过代理实现的
+action、mutations发布订阅模式
+
+分模块，作用域，所有模块都会扔到一个里面去，找到对应的执行
 
 
-
-
-
-
-
-
-
-
-
-
-
-// export const enum ReactiveFlags {
-//     //跳过
-//     SKIP = "__v_skip",
-//     //是否是响应式
-//     IS_REACTIVE = "__v_isReactive",
-//     //是否是只读
-//     IS_READONLY = "__v_isReadonly",
-//     //是否是浅层次
-//     IS_SHALLOW = "__v_isShallow",
-//     //proxy对应的源数据
-//     RAW = "__v_raw",
-// }
-
-// export interface Target {
-//     [ReactiveFlags.SKIP]?: boolean; //不做响应式处理的数据
-//     [ReactiveFlags.IS_REACTIVE]?: boolean; //target是否是响应式
-//     [ReactiveFlags.IS_READONLY]?: boolean; //target是否是只读
-//     [ReactiveFlags.IS_SHALLOW]?: boolean; //是否是浅层次
-//     [ReactiveFlags.RAW]?: any; //proxy对应的源数据
-// }
+vue2+vue3  高阶函数，柯里化（通过参数来不同的逻辑）、结构的处理、设计模式
+*/

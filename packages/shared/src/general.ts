@@ -46,4 +46,7 @@ export const isIntegerKey = (key: unknown) =>
     key[0] !== '-' &&
     '' + parseInt(key, 10) === key
 
+export const hasChanged = (value: any, oldValue: any): boolean =>
+    !Object.is(value, oldValue)
+
 

@@ -1,4 +1,4 @@
-import { TrackType } from "./operations"
+import { TrackOpTypes, TriggerOpTypes } from "./operations"
 
 
 export function effect<T = any>(fn: () => T, options: any = {}) {
@@ -53,7 +53,7 @@ function createReactEffect(fn, options) {
  * 收集effect
  * */
 let targetMap = new WeakMap()////创建表
-export function track(target: object, type: TrackType, key: unknown) {
+export function track(target: object, type: TrackOpTypes, key: unknown) {
     if (activeEffect === undefined) {// 没有在effect 中使用
         return
     }
@@ -72,5 +72,18 @@ export function track(target: object, type: TrackType, key: unknown) {
     if (!dep.has(activeEffect)) {
         dep.add(activeEffect)//收集effect
     }
+
+}
+
+/**
+ * 触发依赖更新
+ */
+export function trigger(
+    target: object,
+    type: TriggerOpTypes,
+    key?: unknown,
+    newValue?: unknown,
+    oldValue?: unknown,
+    oldTarget?: Map<unknown, unknown> | Set<unknown>) {
 
 }
