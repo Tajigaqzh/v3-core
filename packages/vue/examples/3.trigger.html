@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    
+</head>
+<body>
+    <script src="../../reactively/dist/reactively.global.js"></script>
+    <script>
+        const {reactive,effect} = vueReactively
+        let obj ={name:'zs',age:{m:11},list:[1,2,3]}
+        const state = reactive(obj)
+        console.log(state.list);
+
+        effect(()=>{ // effect1
+             //
+             state.name  //收集的 effect1
+           
+         })
+
+        // 测试修改的时候触发
+        setTimeout(()=>{
+            state.list[0] = 5
+        },1000)
+        // 测试新增的时候触发
+        setTimeout(()=>{
+            state.list[3] = 10
+        },2000)
+        // 更新相等，不触发
+        setTimeout(()=>{
+            state.list[3]=10
+        },3000)
+    </script>
+</body>
+</html>

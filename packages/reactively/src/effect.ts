@@ -1,4 +1,6 @@
+import { isArray, isIntegerKey, isMap } from "@vue/shared"
 import { TrackOpTypes, TriggerOpTypes } from "./operations"
+
 
 
 export function effect<T = any>(fn: () => T, options: any = {}) {
@@ -85,5 +87,46 @@ export function trigger(
     newValue?: unknown,
     oldValue?: unknown,
     oldTarget?: Map<unknown, unknown> | Set<unknown>) {
+    // WeapMap=>{target:map{key=>Set}}
+    const depsMap = targetMap.get(target)
+    if (!depsMap) {
+        return
+    }
+    //有
+    // let effects = depsMap.get(key)//set[]
 
+    let effectSet = new Set()
+
+    const add = (effectAdd) => {
+        if (effectAdd) {
+            effectAdd.forEach(effect => effectSet.add(effect))
+        }
+    }
+      //处理数组 就是 key === length   修改 数组的 length,手动修改数组的长度state.list.length = 3
+      if (key === 'length' && isArray(target)) {
+        // 修改数组的长度需要特殊处理一下
+        depsMap.forEach((dep, key) => {
+            //  console.log(depsMap,555)
+            //  console.log(key, newValue)
+            //  console.log(dep) // [1,2,3]   length =1
+             // 如果更改 的长度 小于 收集的索引 ，那么这个索引需要重新执行 effect
+            if (key === 'length' || key > newValue) {
+                add(dep)
+            }
+        })
+    } else {
+        //可能是对象
+        if (key != undefined) {
+            add(depsMap.get(key)) //获取当前属性的effect
+        }
+        //数组  修改  索引
+        switch (type) {
+            case TriggerOpTypes.ADD:
+                if (isArray(target) && isIntegerKey(key)) {
+                    add(depsMap.get('length')) 
+                }
+        }
+    }
+    //执行
+    effectSet.forEach((effect: any) => effect())
 }

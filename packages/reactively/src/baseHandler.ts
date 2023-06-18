@@ -1,5 +1,4 @@
 // 拦截器
-
 import { isObject, extend, isArray, isIntegerKey, hasOwn, hasChanged } from "@vue/shared"
 import { reactive, readonly } from "./reactive"
 import { type Target } from "../types/index"
@@ -59,14 +58,11 @@ function createGetter(isReadonly = false, shallow = false) {
         if (shallow) {
             return res;
         }
-
         if (isObject(res)) {
             /**  vue3是懒代理，嵌套多层的对象，你不使用的话，他就不会代理，比如state:{name:"zs",list:{a:b}}
-             * 不这样使用的话，不对对深层次的进行代理state.list.a
-            * 大大提高了性能
+             * 不这样使用的话，不对对深层次的进行代理state.list.a大大提高了性能
             */
-            return isReadonly ? readonly(res) : reactive(res)
-            // 嵌套
+            return isReadonly ? readonly(res) : reactive(res)// 递归
         }
         return res
     }
@@ -78,7 +74,6 @@ function createGetter(isReadonly = false, shallow = false) {
  */
 function createSetter(shallow = false) {
     return function set(target: Target, key: string | symbol, value: unknown, receiver: object) {
-
         //当数据更新时候 通知对应属性的effect重新执行
         // 我们要区分是新增的 还是 修改的  vue2 里无法监控更改索引，无法监控数组的长度变化
         // 注意 （1）在这里要区分是数组还是对象 （2）要区分是添加值还是重新赋值
@@ -89,11 +84,10 @@ function createSetter(shallow = false) {
         const result = Reflect.set(target, key, value, receiver)
         if (!hasKey) {
             // 新增
-            // trigger(target, TriggerOpTypes.ADD, key, value)
-            trigger(target, TriggerOpTypes.ADD, key, value)
+            trigger(target, TriggerOpTypes.ADD, key, value)  
         } else {
             // 修改,先判断新值和旧值是否一致
-            if (hasChanged(value, oldValue)) {
+            if (hasChanged(value, oldValue)) {    
                 trigger(target, TriggerOpTypes.SET, key, value, oldValue)
             }
         }
