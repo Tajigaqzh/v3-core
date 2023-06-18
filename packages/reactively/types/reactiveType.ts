@@ -1,3 +1,5 @@
+import { Ref, UnwrapRefSimple } from "./refType";
+
 export const enum ReactiveFlags {
     //跳过
     SKIP = "__v_skip",
@@ -18,3 +20,12 @@ export interface Target {
     [ReactiveFlags.IS_SHALLOW]?: boolean; //是否是浅层次
     [ReactiveFlags.RAW]?: any; //proxy对应的源数据
 }
+export declare const ShallowReactiveMarker: unique symbol;
+
+export type ShallowReactive<T> = T & { [ShallowReactiveMarker]?: true };
+
+// only unwrap nested ref
+export type UnwrapNestedRefs<T> = T extends Ref ? T : UnwrapRefSimple<T>;
+
+
+export type EffectScheduler = (...args: any[]) => any

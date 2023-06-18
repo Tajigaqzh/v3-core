@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    
+</head>
+<body>
+    <div id="app"></div>
+    <div id="toref"></div>
+    <script src="../../reactively/dist/reactively.global.js"></script>
+    <script>
+        let {ref,shallowRef,effect,toRef,reactive,toRefs} = vueReactively
+
+   /*      let name = ref("zss")
+        console.log(name);
+        name.value="123"
+        console.log(name,"测试修改");
+        console.log(name.value,"测试获取");     
+        let age = shallowRef("dsnui",true)
+        console.log(age);
+        effect(()=>{
+            document.getElementById("app").innerHTML = name.value
+        })
+
+        setTimeout(()=>{
+            name.value = "响应式"
+        },3000) */
+
+        // let state = reactive({name:"1111",age:23,school:"eduh"})
+        // let myAge = toRef(state,"age")
+
+        let state = {name:"张三",age:23,school:"北大"}
+     
+        let a= toRefs(state)
+        const {name,age,school} = toRefs(state)
+  
+        console.log(name.value,age.value,school.value);
+        effect(()=>{
+            document.getElementById("toref").innerHTML =name.value+""+age.value+""+school.value
+        })
+        setTimeout(()=>{
+            // myAge.value = 100
+            // mySchool.value = "航海"
+            // myName.value = "zdfjsdu"
+            name.value = "李四"
+            age.value = "25"
+            school.value ="复旦"
+        },3000)
+
+    </script>
+</body>
+</html>

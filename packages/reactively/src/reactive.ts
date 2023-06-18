@@ -1,23 +1,26 @@
 import { reativeHandlers, shallowReativeHandlers, readonlyHandlers, shallowReadonlyHandlers } from "./baseHandler"
 import { isObject } from "@vue/shared"
-import { ReactiveFlags, type Target } from "../types/index"
+import { ReactiveFlags, UnwrapNestedRefs, type ShallowReactive, type Target } from "../types/index"
 
 export const reactiveMap = new WeakMap<Target, any>();
 export const shallowReactiveMap = new WeakMap<Target, any>();
 export const readonlyMap = new WeakMap<Target, any>();
 export const shallowReadonlyMap = new WeakMap<Target, any>();
 
+
+//泛型约束
+export function reactive<T extends object>(target: T): UnwrapNestedRefs<T>;
 /**
  * 响应式
  */
-export function reactive(target) {
+export function reactive(target:object) {
     return createReactObject(target, false, reativeHandlers, reactiveMap)
     // 使用了高阶函数，函数的返回值也是函数
 }
 /**
  * 浅层次响应式
  */
-export function shallowReactive(target) {
+export function shallowReactive<T extends object>(target: T): ShallowReactive<T> {
     return createReactObject(target, false, shallowReativeHandlers, shallowReactiveMap)
 }
 
@@ -31,9 +34,21 @@ export function readonly(target) {
 /**
  * 浅层只读
  */
-export function shallowReadonly(target) {
+export function shallowReadonly<T extends object>(target: T): Readonly<T> {
     return createReactObject(target, true, shallowReadonlyHandlers, shallowReadonlyMap)
 }
+/**
+ * 变成原始对象
+ * @param observed 
+ * @returns 
+ */
+export function toRaw<T>(observed: T): T {
+	const raw = observed && (observed as Target)[ReactiveFlags.RAW];
+	return raw ? toRaw(raw) : observed;
+}
+
+// export const toReactive = <T extends unknown>(value: T): T =>
+//   isObject(value) ? reactive(value) : value
 
 /**
  * 创建reactive对象的函数

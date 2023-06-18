@@ -1,9 +1,9 @@
-// 拦截器
 import { isObject, extend, isArray, isIntegerKey, hasOwn, hasChanged } from "@vue/shared"
 import { reactive, readonly } from "./reactive"
 import { type Target } from "../types/index"
 import { track, trigger } from "./effect"
 import { TrackOpTypes, TriggerOpTypes } from "./operations";
+// 拦截器
 
 const get = /*#__PURE__*/ createGetter()//不是只读
 const shallowReactiveGet = /*#__PURE__*/ createGetter(false, true)//不是只读，浅层次
