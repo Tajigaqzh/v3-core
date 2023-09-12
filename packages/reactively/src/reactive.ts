@@ -13,7 +13,7 @@ export function reactive<T extends object>(target: T): UnwrapNestedRefs<T>;
 /**
  * 响应式
  */
-export function reactive(target:object) {
+export function reactive(target: object) {
     return createReactObject(target, false, reativeHandlers, reactiveMap)
     // 使用了高阶函数，函数的返回值也是函数
 }
@@ -43,8 +43,8 @@ export function shallowReadonly<T extends object>(target: T): Readonly<T> {
  * @returns 
  */
 export function toRaw<T>(observed: T): T {
-	const raw = observed && (observed as Target)[ReactiveFlags.RAW];
-	return raw ? toRaw(raw) : observed;
+    const raw = observed && (observed as Target)[ReactiveFlags.RAW];
+    return raw ? toRaw(raw) : observed;
 }
 
 // export const toReactive = <T extends unknown>(value: T): T =>
@@ -85,6 +85,21 @@ function createReactObject(target: Target, isReadonly: boolean, baseHandlers: Pr
 export function isReadonly(value: unknown): boolean {
     return !!(value && (value as Target)[ReactiveFlags.IS_READONLY]);
 }
+
+export function isReactive(value: unknown): boolean {
+    if (isReadonly(value)) {
+        return isReactive((value as Target)[ReactiveFlags.RAW]);
+    }
+    return !!(value && (value as Target)[ReactiveFlags.IS_REACTIVE]);
+}
+export function isShallow(value: unknown): boolean {
+    return !!(value && (value as Target)[ReactiveFlags.IS_SHALLOW]);
+}
+
+export function isProxy(value: unknown): boolean {
+    return isReactive(value) || isReadonly(value);
+}
+
 /*
 面试响应式api的proxy和ref区别
 proxy 、懒执行（性能优化）

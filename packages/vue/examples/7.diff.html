@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<meta http-equiv="X-UA-Compatible" content="ie=edge" />
+		<title>Document</title>
+	</head>
+
+	<body>
+		<div id="app"></div>
+		<script src="../../runtime-dom/dist/runtime-dom.global.js"></script>
+
+		<script>
+			let { createApp, h, reactive } = VueRuntimeDom;
+
+			//组件
+			let App = {
+				setup(props, context) {
+					// 1 props 组件  context：attrs emit expose
+					//参数
+					//  console.log('setup',props,context)
+					let state = reactive({ name: "李四", isFalg: false });
+					//返回值  1 对象   2 函数=》 render
+					// return ()=>{
+					//   console.log('setup--render')  //代理
+					// }
+					// return(){}
+					const fn = () => {
+						state.name = "张三";
+					};
+					setTimeout(() => {
+						state.isFalg = true;
+					}, 2000);
+					return {
+						state,
+						fn,
+					};
+				},
+				render(proxy) {
+					if (proxy.state.isFalg) {
+						//更新
+						return h("div", { style: { color: "red" }, onClick: proxy.fn }, [
+							h("p", {}, "你好"),
+						]); //h()  =》vnode =>
+					} else {
+						//初始渲染
+						return h(
+							"div",
+							{ style: { color: "blue", background: "pink" }, onClick: proxy.fn },
+							"hello"
+						); //h()  =》vnode =>
+					}
+				},
+			};
+			createApp(App).mount("#app");
+
+			//知识点回归  更新
+
+			//diff
+
+			//1比对元素（是不是同一个元素） =》直接替换
+			//2同一个元素
+			//（1） 比对属性
+			// （2）比对children
+
+			//
+		</script>
+	</body>
+</html>

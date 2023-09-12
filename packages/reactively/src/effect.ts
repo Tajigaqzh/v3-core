@@ -1,245 +1,137 @@
+// 定义effect  定义相关的属性 
+//effect 收集依赖  更新视图
 import { isArray, isIntegerKey } from "@vue/shared"
-import { TrackOpTypes, TriggerOpTypes } from "./operations"
-import { ComputedRefImpl } from "./computed"
-import { DebuggerEvent, Dep } from "../types"
-import { finalizeDepMarkers, initDepMarkers } from "./deps"
-
-
-
-let effectTrackDepth = 0//当前正在递归跟踪的effects层数。
-export let trackOpBit = 1
-const maxMarkerBits = 30
-
-export let shouldTrack = true
-const trackStack: boolean[] = []
-
-
-export function effect<T = any>(fn: () => T, options: any = {}) {
-  // //我们需要这个effect变成响应式的effct，可以做到数据变化重新执行
-  const effect = createReactEffect(fn, options)
-
-  //(1)响应式的effect默认会先执行一次
-  if (!options.lazy) {
-    effect()
-  }
-  // 否则直接返回该函数
-  return effect
+import { TrackOpTypes, TriggerOpTypes } from './operations'
+export function effect<T = any>(fn, options: any = {}) {
+    const effect = createReactEffect(fn, options)
+    //判断一下
+    if (!options.lazy) {
+        effect() //默认执行
+    }
+    return effect
 }
-
-//创建响应式effect
-//(1)添加属性   id  和 _iseffect用于区分他是响应式的effect   raw(用于保存用户的方法) ，options 再effect
-//(2) 默认执行一次
-
-
-
 let uid = 0
-let activeEffect;//保存当前的副作用函数
-const effectStack = []//创建一个栈，存放副作用
-// 工厂函数，柯里化
+let activeEffect //保存当前的effect
+const effectStack = []  //定义一个栈
 function createReactEffect(fn, options) {
-  //注意：这个方法返回的是一个函数，闭包
-  const effect = function reactiveEffect() {
-    if (!effectStack.includes(effect)) { //保证effect没有加入到effectStack
-      try {  //语句用于处理代码中可能出现的错误信息。
-        //入栈
-        effectStack.push(effect)
-        activeEffect = effect
-        // console.log('todo.....')   //默认执行 用户的写的方法
-        // 这个effect 是有返回结果的
-
-        fn(); // 函数执行时会取值操作 会执行get 方法的
-      } finally {
-        //出栈 
-        effectStack.pop()
-        activeEffect = effectStack[effectStack.length - 1]
-      }
-    }
-  }
-  effect.id = uid++//区别effect
-  effect._isEffect = true//区分是不是响应式的
-  effect._raw = fn//保存用户的方法
-  effect._options = options//保存用户的属性
-  return effect
-}
-
-/**
- * 收集effect
- * */
-let targetMap = new WeakMap()////创建表
-export function track(target: object, type: TrackOpTypes, key: unknown) {
-  if (activeEffect === undefined) {// 没有在effect 中使用
-    return
-  }
-  // 获取effect,{target:dep},dep是一个map
-  let depMap = targetMap.get(target)
-  if (!depMap) {//没有
-    targetMap.set(target, (depMap = new Map()))//{target:map}
-  }
-  // 有
-  let dep = depMap.get(key)//{name:[]}
-
-  if (!dep) {// 没有属性
-    depMap.set(key, (dep = new Set()))
-  }
-  //有没有effect  key
-  if (!dep.has(activeEffect)) {
-    dep.add(activeEffect)//收集effect
-  }
-
-}
-
-/**
- * 触发依赖更新
- */
-export function trigger(
-  target: object,
-  type: TriggerOpTypes,
-  key?: unknown,
-  newValue?: unknown,
-  oldValue?: unknown,
-  oldTarget?: Map<unknown, unknown> | Set<unknown>) {
-  // WeapMap=>{target:map{key=>Set}}
-  const depsMap = targetMap.get(target)
-  if (!depsMap) {
-    return
-  }
-  //有
-  // let effects = depsMap.get(key)//set[]
-
-  let effectSet = new Set()
-
-  const add = (effectAdd) => {
-    if (effectAdd) {
-      effectAdd.forEach(effect => effectSet.add(effect))
-    }
-  }
-  //处理数组 就是 key === length   修改 数组的 length,手动修改数组的长度state.list.length = 3
-  if (key === 'length' && isArray(target)) {
-    // 修改数组的长度需要特殊处理一下
-    depsMap.forEach((dep, key) => {
-      //  console.log(depsMap,555)
-      //  console.log(key, newValue)
-      //  console.log(dep) // [1,2,3]   length =1
-      // 如果更改 的长度 小于 收集的索引 ，那么这个索引需要重新执行 effect
-      if (key === 'length' || key > newValue) {
-        add(dep)
-      }
-    })
-  } else {
-    //可能是对象
-    if (key != undefined) {
-      add(depsMap.get(key)) //获取当前属性的effect
-    }
-    //数组  修改  索引
-    switch (type) {
-      case TriggerOpTypes.ADD:
-        if (isArray(target) && isIntegerKey(key)) {
-          add(depsMap.get('length'))
+    const effect = function reactiveEffect() { // 响应式的effect
+        if (!effectStack.includes(effect)) { //保证effect 没有加入到 effectStack
+            try {
+                //入栈
+                effectStack.push(effect)
+                activeEffect = effect
+                return fn() // 执行用户的方法    
+            } finally { // 执行下面的方法
+                //出栈
+                effectStack.pop()
+                activeEffect = effectStack[effectStack.length - 1]
+            }
         }
     }
-  }
-  //执行
-  effectSet.forEach((effect: any) => effect())
+    effect.id = uid++;//区别effect
+    effect._isEffect = true; // 区别effect 是不是响应式的effect
+    effect.raw = fn;// 保存 用户的方法
+    effect.options = options //保存 用户的属性
+    return effect
 }
 
-function cleanupEffect(effect: ReactiveEffect) {
-  const { deps } = effect
-  if (deps.length) {
-    for (let i = 0; i < deps.length; i++) {
-      deps[i].delete(effect)
-    }
-    deps.length = 0
-  }
-}
-export class ReactiveEffect<T = any> {
-  active = true
-  deps: Dep[] = []
-  parent: ReactiveEffect | undefined = undefined
-
-  /**
-   * Can be attached after creation
-   * @internal
-   */
-  computed?: ComputedRefImpl<T>
-
-  /**
-   * @internal
-   */
-  allowRecurse?: boolean
-  /**
-   * @internal
-   */
-  private deferStop?: boolean
-
-  onStop?: () => void
-  // dev only
-  onTrack?: (event: DebuggerEvent) => void
-  // dev only
-  onTrigger?: (event: DebuggerEvent) => void
-
-  constructor(
-    public fn: () => T,
-    public scheduler,
-    scope?
-  ) {
-    //   recordEffectScope(this, scope)
-  }
-
-  run() {
-    if (!this.active) {
-      return this.fn()
-    }
-    let parent: ReactiveEffect | undefined = activeEffect
-    let lastShouldTrack = shouldTrack
-    while (parent) {
-      if (parent === this) {
+//3收集effect   在获取数据的时候触发 get    收集 effect
+let targetMap = new WeakMap() //创建表
+export function track(target: object, type: TrackOpTypes, key: unknown) {  //1 name  =》 effect
+    // console.log(target, type, key, activeEffect) //name
+    //对应的key 
+    // key 和我们的 effect  一一对应    map =>key =target=>属性 =》[effect] set
+    if (activeEffect === undefined) { //  没有在effect 中使用
         return
-      }
-      parent = parent.parent
     }
-    try {
-      this.parent = activeEffect
-      activeEffect = this
-      shouldTrack = true
-
-      trackOpBit = 1 << ++effectTrackDepth
-
-      if (effectTrackDepth <= maxMarkerBits) {
-        initDepMarkers(this)
-      } else {
-        cleanupEffect(this)
-      }
-      return this.fn()
-    } finally {
-      if (effectTrackDepth <= maxMarkerBits) {
-        finalizeDepMarkers(this)
-      }
-
-      trackOpBit = 1 << --effectTrackDepth
-
-      activeEffect = this.parent
-      shouldTrack = lastShouldTrack
-      this.parent = undefined
-
-      if (this.deferStop) {
-        this.stop()
-      }
+    // 获取effect  {target:dep}
+    let depMap = targetMap.get(target)
+    if (!depMap) { //没有
+        targetMap.set(target, (depMap = new Map)) // 添加值
     }
-  }
-
-  stop() {
-    // stopped while running itself - defer the cleanup
-    if (activeEffect === this) {
-      this.deferStop = true
-    } else if (this.active) {
-      cleanupEffect(this)
-      if (this.onStop) {
-        this.onStop()
-      }
-      this.active = false
+    //有
+    let dep = depMap.get(key) //{name:[]}
+    if (!dep) { //没有属性
+        depMap.set(key, (dep = new Set))
     }
-  }
+    //有没有effect  key
+    if (!dep.has(activeEffect)) {
+        dep.add(activeEffect) //收集effect
+    }
+    // console.log(targetMap)
 }
 
+//问题  (1) effect 式一个树型结构
+// effect(()=>{ // effect1  [effect1]
+//     //
+//     state.name  //收集的 effect1
+//     effect(()=>{ //effect2
+//        state.age   //effect2
+//     })
+//   state.a // 收集effect1
+//   state.a++ // 10 11  effect1
+// })
+
+//   根据 你写的项目  vue   vuex =>  4 state   getter  actions  mutations    actions:[]
+//  this.c   源码  高阶函数  类似于  柯里化   （1） 结构的处理   （2）  设计模式
 
 
+//触发更新
+// 1 处理对象
+export function trigger(target: object, type: TriggerOpTypes, key?: unknown, newValue?: unknown, oldValue?: unknown) {
+    // console.log(targetMap) //收集依赖  map  =>{target:map{key=>set}}
+    console.log(target,type,key,newValue,oldValue);
+    
+    const depsMap = targetMap.get(target) // map
+    if (!depsMap) {
+        return
+    }
+    //有
+    // let effects = depsMap.get(key) // set []
+    let effectSet = new Set() //如果有多个同时修改一个值，并且相同 ，set 过滤一下
+    const add = (effectAdd) => {
+        if (effectAdd) {
+            effectAdd.forEach(effect => effectSet.add(effect))
+        }
+    }
+    //处理数组 就是 key === length   修改 数组的 length
+    if (key === 'length' && isArray(target)) {
+        depsMap.forEach((dep, key) => {
+            //  console.log(depsMap,555)
+            console.log(key, newValue)
+            console.log(dep) // [1,2,3]   length =1
+            // 如果更改 的长度 小于 收集的索引 ，那么这个索引需要重新执行 effect
+            if (key === 'length' || key > newValue) {
+                add(dep)
+            }
+        })
+    } else {
+        //可能是对象
+        if (key != undefined) {
+            add(depsMap.get(key)) //获取当前属性的effect
+        }
+        //数组  修改  索引
+        switch (type) {
+            case TriggerOpTypes.ADD:
+                if (isArray(target) && isIntegerKey(key)) {
+                    add(depsMap.get('length'))
+                }
+        }
+    }
+    //执行
+    effectSet.forEach((effect: any) => {
+        if (effect.options.sch) {
+            effect.options.sch(effect)  //_drity = true
+        } else {
+            effect()
+        }
+    })
+
+}
+
+  //触发依赖 trigger  就是触发set 这个属性    去  收集的表中去找
+
+  //数组 处理  vue3  直接修改  数组的长度
+
+
+  //ref

@@ -2,8 +2,10 @@ import { isObject, extend, isArray, isIntegerKey, hasOwn, hasChanged } from "@vu
 import { reactive, readonly } from "./reactive"
 import { type Target } from "../types/index"
 import { track, trigger } from "./effect"
-import { TrackOpTypes, TriggerOpTypes } from "./operations";
+import { TrackOpTypes, TriggerOpTypes, } from "./operations";
 // 拦截器
+
+
 
 const get = /*#__PURE__*/ createGetter()//不是只读
 const shallowReactiveGet = /*#__PURE__*/ createGetter(false, true)//不是只读，浅层次
@@ -84,10 +86,10 @@ function createSetter(shallow = false) {
         const result = Reflect.set(target, key, value, receiver)
         if (!hasKey) {
             // 新增
-            trigger(target, TriggerOpTypes.ADD, key, value)  
+            trigger(target, TriggerOpTypes.ADD, key, value)
         } else {
             // 修改,先判断新值和旧值是否一致
-            if (hasChanged(value, oldValue)) {    
+            if (hasChanged(value, oldValue)) {
                 trigger(target, TriggerOpTypes.SET, key, value, oldValue)
             }
         }

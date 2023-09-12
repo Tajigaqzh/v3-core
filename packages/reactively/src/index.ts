@@ -1,28 +1,49 @@
 export {
+    ref,
+    shallowRef,
+    isRef,
+    toRef,
+    toRefs,
+} from "./ref"
+
+export {
     reactive,
     readonly,
-    isReadonly,
     shallowReactive,
     shallowReadonly,
+    isReadonly,
+    isProxy,
+    isReactive,
+    isShallow,
     toRaw,
 } from './reactive'
 
 export {
-    isRef,
-    ref,
-    shallowRef,
-    toRef,
-    toRefs
-} from "./ref"
-
-export {
     effect,
     trigger,
-    track,
 } from "./effect"
+
+export {
+    computed
+} from "./computed"
+
+export {
+    TrackOpTypes /* @remove */,
+    TriggerOpTypes /* @remove */
+} from './operations'
 
 export {
     ReactiveFlags,
     type ShallowReactive,
-    type UnwrapNestedRefs
+    type UnwrapNestedRefs,
+    type ComputedRef,
+    type WritableComputedRef,
+    type WritableComputedOptions,
+    type ComputedGetter,
+    type ComputedSetter,
+    type ReactiveEffectOptions,
+    type EffectScheduler,
+    type DebuggerOptions,
+    type DebuggerEvent,
+    type DebuggerEventExtraInfo
 } from "../types/index"

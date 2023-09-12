@@ -1,10 +1,10 @@
 import { createRequire } from 'module';
 import path from 'path'
 import { fileURLToPath } from 'url';
-import ts from 'rollup-plugin-typescript2' //解析  ts
 import json from '@rollup/plugin-json'
 import resolvePlugin from '@rollup/plugin-node-resolve' //解析 第三方 插件
-
+import typescript from '@rollup/plugin-typescript';
+import terser from '@rollup/plugin-terser';
 
 // 解决modulejs没有__dirname的问题
 const require = createRequire(import.meta.url)
@@ -52,9 +52,8 @@ function createConfig(format, output) {
         output,
         plugins: [
             json(),
-            ts({ //解析 ts 
-                tsconfig: path.resolve(__dirname, 'tsconfig.json')
-            }),
+            // terser(),
+            typescript({ tsconfig:path.resolve(__dirname,"tsconfig.json")}),
             resolvePlugin() //解析 第三方 插件
         ]
     }

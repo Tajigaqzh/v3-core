@@ -1,70 +1,53 @@
 import { NOOP, isFunction } from "@vue/shared";
 import { ComputedGetter, ComputedRef, ComputedSetter, DebuggerOptions, ReactiveFlags, WritableComputedOptions, WritableComputedRef } from "../types";
-import { ReactiveEffect } from "./effect";
+import { effect } from "./effect";
 
-// 方法重载
-export function computed<T>(
-    getter: ComputedGetter<T>,
-    debugOptions?: DebuggerOptions
-): ComputedRef<T>
-export function computed<T>(
-    options: WritableComputedOptions<T>,
-    debugOptions?: DebuggerOptions
-): WritableComputedRef<T>
-
-export function computed<T>(
-    getterOrOptions: ComputedGetter<T> | WritableComputedOptions<T>,
-    debugOptions?: DebuggerOptions,
-    isSSR = false
-) {
-    //定义setter和setter
-    let getter: ComputedGetter<T>
-    let setter: ComputedSetter<T>
-
-    //判断getterOrOptions是否是函数
-    const onlyGetter = isFunction(getterOrOptions)
-    if (onlyGetter) {
-        getter = getterOrOptions
-        setter = NOOP
-    } else {
-        getter = getterOrOptions.get
-        setter = getterOrOptions.set
+export function computed(getterOrOptons) {
+    //注意  (1) 函数   （2） 对象
+    //1 处理数据
+    let getter; //获取
+    let setter;//设置数据
+    if (isFunction(getterOrOptons)) { //函数  getter
+        getter = getterOrOptons,
+            setter = () => {
+                console.warn('computed value must be readonly')
+            }
+    } else { //对象 { get(),set{}}
+        getter = getterOrOptons.get;
+        setter = getterOrOptons.set
     }
-    return new ComputedRefImpl(getter, setter, onlyGetter || !setter, isSSR) as any
+    //返回值
+    return new ComputedRefImpl(getter, setter)
 }
 
-export class ComputedRefImpl<T>{
-    // 缓存的值
-    private _value!: T
 
-    //标记为一个ref类型
-    public readonly __v_isRef = true
-
-    // 在构造器中创建的ReactiveEffect实例
-    public readonly effect: ReactiveEffect<T>
-
-    // 只读标识
-    public readonly [ReactiveFlags.IS_READONLY]: boolean = false
-
-    // 是否为脏数据，如果是脏数据需要重新计算
-    public _dirty = true
-
-
-    constructor(
-        //getter
-        getter: ComputedGetter<T>,
-        //setter，只读
-        private readonly _setter: ComputedSetter<T>,
-        isReadonly: boolean,
-        isSSR: boolean
-    ) {
-        this.effect = new ReactiveEffect(getter, () => {
-            if (!this._dirty) {
-                this._dirty = true
-                //有脏数据触发依赖更新
-                // triggerRefValue(this)
+class ComputedRefImpl {
+    //定义属性
+    public _dirty = true; //默认获取执行
+    public _value;
+    public effect
+    constructor(getter,public setter) {
+        //这个effect   默认不执行    age.value  effect 收集
+        this.effect = effect(getter, {
+            lazy: true,
+            sch:()=>{  //修改数据的时候执行   age.value  = 20  trigger
+                if(!this._dirty){
+                    this._dirty = true
+                }
             }
         })
+    }
 
+    //获取  myAge.value  =>getter 方法中的值
+    get value() {
+        //获取执行
+        if (this._dirty) {
+            this._value =  this.effect() //获取用户的值
+            this._dirty = false
+        }
+      return this._value
+    }
+    set value(newValue){
+        this.setter(newValue)
     }
 }
