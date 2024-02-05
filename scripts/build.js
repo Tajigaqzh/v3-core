@@ -5,8 +5,11 @@ const Color = {
     'green': '\x1B[32m', // 绿色
     'yellow': '\x1B[33m', // 黄色
     'white': '\x1B[37m', // 白色
+    "red": '\x1B[31m',//红色
 }
-
+/**
+ * 过滤
+ */
 const dirs = fs.readdirSync('packages').filter((item) => {
     if (!fs.statSync('packages', item).isDirectory()) {
         return false
@@ -17,11 +20,11 @@ const dirs = fs.readdirSync('packages').filter((item) => {
 let args = process.argv.splice(2)
 
 if (args === undefined || args.length === 0) {
-    console.warn(Color.yellow, "请输入参数！！！")
+    console.warn(Color.red, "请输入参数！！！")
+    console.log(Color.green, "tips:", "\n");
     console.log(Color.green, "all或者c表示打包所有代码；")
     console.log(Color.green, "cw表示打包所有代码并监听变化;")
-    console.log(Color.green, "输入一个正确的包名仅打包该包；")
-    console.log(Color.green, "输入多个包名时，请用一个空格分割包名")
+    console.log(Color.green, "输入一个正确的包名仅打包该包,输入多个包名时，请用一个空格分割包名")
     console.log(Color.white)
 }
 
@@ -51,7 +54,6 @@ if (args.length === 1) {
  * @param {*} nodeArgs 
  */
 async function build(target, nodeArgs = "c") {
-
     // console.log(target, 333);
     // -c执行rollup.config.js配置文件,inherit在父包中输出,-w监听变化
     await execa("rollup", [`-${nodeArgs}`, "--environment", `TARGET:${target}`], { stdio: "inherit" });
@@ -59,14 +61,18 @@ async function build(target, nodeArgs = "c") {
 
 /**
  * 并行打包所有包
+ * @param {Function} buildFun 打包函数
+ * @param {string} nodeArgs 参数
+ * @param {Array<string>} dirs 目录 
  */
+
 async function runParaller(dirs, buildFun, nodeArgs) {
-    const result = []
+    const result = [];
     for (const item of dirs) {
         const p = Promise.resolve().then(() => buildFun(item, nodeArgs))
         result.push(p)
     }
-    return Promise.all(result)
+    return Promise.all(result);
 }
 
 /**

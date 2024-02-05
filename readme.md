@@ -51,3 +51,14 @@ execa解析子进程
 |revert|	回滚到上一个版本|
 |style|	代码格式修改, 注意不是 css 修改|
 |test|	测试用例修改|
+
+# vue3对比vue2变化
+在vue2的死后使用defineProperty劫持数据，需要对属性进行重写添加getter以及setter，性能差
+新增和删除属性无法直接监听
+数组无法采用defineProperty监听，需要单独处理，性能低
+vue3使用Proxy解决了以上问题
+# 组合式API优点
+this指向问题
+逻辑分离
+复用
+

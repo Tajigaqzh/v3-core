@@ -11,7 +11,7 @@ export const isString = (val: unknown): val is string => typeof val === 'string'
 export const isArray = Array.isArray
 
 export const isDate = (val: unknown): val is Date =>
-    toTypeString(val) === '[object Date]'
+    toTypeString(val) === '[object Date]'   
 
 export const isRegExp = (val: unknown): val is RegExp =>
     toTypeString(val) === '[object RegExp]'
@@ -39,7 +39,7 @@ export const hasOwn = (
     key: string | symbol
 ): key is keyof typeof val => hasOwnProperty.call(val, key)
 
-// p判断数组的key是不是整数
+// 判断数组的key是不是整数
 export const isIntegerKey = (key: unknown) =>
     isString(key) &&
     key !== 'NaN' &&

@@ -43,7 +43,6 @@ const options = pkg.buildOptions
 
 function createConfig(format, output) {
     //进行打包
-    console.log()
     output.name = options.name
     output.sourcemap = true
     //生成rollup配置

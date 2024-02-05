@@ -1,6 +1,6 @@
 import { isObject, extend, isArray, isIntegerKey, hasOwn, hasChanged } from "@vue/shared"
 import { reactive, readonly } from "./reactive"
-import { type Target } from "../types/index"
+import type { Target } from "../types/index"
 import { track, trigger } from "./effect"
 import { TrackOpTypes, TriggerOpTypes, } from "./operations";
 // 拦截器
@@ -12,8 +12,8 @@ const shallowReactiveGet = /*#__PURE__*/ createGetter(false, true)//不是只读
 const reandonlyGet = /*#__PURE__*/ createGetter(true)//只读，非浅层
 const shallowReadonlyGet = /*#__PURE__*/ createGetter(true, true)//浅层且只读
 
-const set = /*#__PURE__*/ createSetter()
-const shallowSet = /*#__PURE__*/ createSetter(true)
+const set = /*#__PURE__*/ createSetter();
+const shallowSet = /*#__PURE__*/ createSetter(true);
 
 export const reativeHandlers = {
     get,
@@ -52,10 +52,10 @@ export const shallowReadonlyHandlers = extend({
  */
 function createGetter(isReadonly = false, shallow = false) {
     return function get(target: Target, key: string | symbol, receiver: object) {
-        const res = Reflect.get(target, key, receiver)
+        const res = Reflect.get(target, key, receiver);
         if (!isReadonly) {
             // 收集依赖，不是只读
-            track(target, TrackOpTypes.GET, key)
+            track(target, TrackOpTypes.GET, key);
         }
         if (shallow) {
             return res;
@@ -82,7 +82,7 @@ function createSetter(shallow = false) {
         let oldValue = (target as any)[key]
         // 判断对象是不是数组并且key是不是整数，如果都满足判断key是否小于数组长度（小于代表是修改，不是新增），
         // 不满足的话判断是否是自定义属性
-        const hasKey = isArray(target) && isIntegerKey(key) ? Number(key) < target.length : hasOwn(target, key)
+        const hasKey = isArray(target) && isIntegerKey(key) ? Number(key) < target.length : hasOwn(target, key);
         const result = Reflect.set(target, key, value, receiver)
         if (!hasKey) {
             // 新增
@@ -90,6 +90,7 @@ function createSetter(shallow = false) {
         } else {
             // 修改,先判断新值和旧值是否一致
             if (hasChanged(value, oldValue)) {
+                //触发更新
                 trigger(target, TriggerOpTypes.SET, key, value, oldValue)
             }
         }

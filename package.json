@@ -1,6 +1,7 @@
 {
   "name": "write-vue3",
   "main": "index.js",
+  "description": "手搓vue3",
   "license": "MIT",
   "version": "1.0.0",
   "private": true,

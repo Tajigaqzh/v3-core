@@ -21,7 +21,7 @@ export function computed(getterOrOptons) {
 }
 
 
-class ComputedRefImpl {
+export class ComputedRefImpl<T> {
     //定义属性
     public _dirty = true; //默认获取执行
     public _value;

@@ -11,7 +11,10 @@
         const {reactive,readonly} = vueReactively
         const state2 = readonly({name:"133"})
         state2.name="1234556"
-        console.log(state2)
+        console.log(state2);
+        const state1 = reactive({name:"zs",age:{m:11}})
+        state1.name="ls"
+        console.log(state1);
     </script>
 </body>
 </html>

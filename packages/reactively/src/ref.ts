@@ -1,5 +1,5 @@
 // 对简单数据类型实现代理
-// ref，普通对象的响应式，原理就是Object.defineProperty为什么不使用proxy，因为proxy只能代理对象
+// ref，普通对象的响应式  
 // 返回RefImpl实例对象，属性：value和_value
 
 import { hasChanged, isArray } from "@vue/shared";
@@ -67,7 +67,7 @@ function createRef(rawValue: unknown, shallow: boolean) {
         return rawValue;
     }
     //如果是浅层次则返回浅层次的ref
-    return new RefImpl(rawValue, shallow);
+    return new RefImpl(rawValue, shallow); 
 }
 class RefImpl<T>{
     //私有属性value，真正.value读取的就是_value，.value改的也是_value
@@ -91,6 +91,7 @@ class RefImpl<T>{
         if (hasChanged(newValue,this._value)) {
             this._value = newValue
             this._rawValue = newValue
+            //触发依赖
             trigger(this,TriggerOpTypes.SET,"value",newValue)
         }
     }

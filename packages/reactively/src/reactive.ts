@@ -1,12 +1,21 @@
-import { reativeHandlers, shallowReativeHandlers, readonlyHandlers, shallowReadonlyHandlers } from "./baseHandler"
-import { isObject } from "@vue/shared"
-import { ReactiveFlags, UnwrapNestedRefs, type ShallowReactive, type Target } from "../types/index"
+import {
+	reativeHandlers,
+	shallowReativeHandlers,
+	readonlyHandlers,
+	shallowReadonlyHandlers,
+} from "./baseHandler";
+import { isObject } from "@vue/shared";
+import {
+	ReactiveFlags,
+	UnwrapNestedRefs,
+	type ShallowReactive,
+	type Target,
+} from "../types/index";
 
-export const reactiveMap = new WeakMap<Target, any>();
+export const mutableHandlers = new WeakMap<Target, any>();
 export const shallowReactiveMap = new WeakMap<Target, any>();
 export const readonlyMap = new WeakMap<Target, any>();
 export const shallowReadonlyMap = new WeakMap<Target, any>();
-
 
 //泛型约束
 export function reactive<T extends object>(target: T): UnwrapNestedRefs<T>;
@@ -14,90 +23,140 @@ export function reactive<T extends object>(target: T): UnwrapNestedRefs<T>;
  * 响应式
  */
 export function reactive(target: object) {
-    return createReactObject(target, false, reativeHandlers, reactiveMap)
-    // 使用了高阶函数，函数的返回值也是函数
+    if(isReadonly(target)){
+        return target;
+    }
+    //  mutableCollectionHandlers,
+	return createReactObject(target, false,reativeHandlers,mutableHandlers);
+	// 使用了高阶函数，函数的返回值也是函数
 }
 /**
  * 浅层次响应式
  */
-export function shallowReactive<T extends object>(target: T): ShallowReactive<T> {
-    return createReactObject(target, false, shallowReativeHandlers, shallowReactiveMap)
+export function shallowReactive<T extends object>(
+	target: T
+): ShallowReactive<T> {
+	return createReactObject(
+		target,
+		false,
+		shallowReativeHandlers,
+        // shallowCollectionHandlers,
+		shallowReactiveMap
+	);
 }
 
 /**
  * 只读
  *  */
 export function readonly(target) {
-    return createReactObject(target, true, readonlyHandlers, readonlyMap)
+	return createReactObject(target, true, readonlyHandlers, 
+        // readonlyCollectionHandlers,
+        readonlyMap);
 }
 
 /**
  * 浅层只读
  */
 export function shallowReadonly<T extends object>(target: T): Readonly<T> {
-    return createReactObject(target, true, shallowReadonlyHandlers, shallowReadonlyMap)
+	return createReactObject(
+		target,
+		true,
+		shallowReadonlyHandlers,
+        // shallowReadonlyCollectionHandlers,
+		shallowReadonlyMap
+	);
 }
 /**
  * 变成原始对象
- * @param observed 
- * @returns 
+ * @param observed
+ * @returns
  */
 export function toRaw<T>(observed: T): T {
-    const raw = observed && (observed as Target)[ReactiveFlags.RAW];
-    return raw ? toRaw(raw) : observed;
+	const raw = observed && (observed as Target)[ReactiveFlags.RAW];
+	return raw ? toRaw(raw) : observed;
 }
 
-// export const toReactive = <T extends unknown>(value: T): T =>
-//   isObject(value) ? reactive(value) : value
+// export const toReactive = <T extends unknown>(value: T): T =>{
+//     return isObject(value)? reactive(value as object) :value;
+// }
+//   return isObject(value) ? reactive(value) : value
 
 /**
  * 创建reactive对象的函数
  * 柯里化好处，复用逻辑，根据不同参数产生不同代理对象
  * @param target 原始对象
- * @param isReadonly 是否只读 
+ * @param isReadonly 是否只读
  * @param baseHandlers 基础拦截器，用于拦截object，普通对象，数组
+ * @param collectionHandlers 集合拦截器
  */
-function createReactObject(target: Target, isReadonly: boolean, baseHandlers: ProxyHandler<any>, proxyMap: WeakMap<Target, any>) {
-    if (!isObject(target)) {
-        return target
-    }
+function createReactObject(
+	target: Target,
+	isReadonly: boolean,
+	baseHandlers: ProxyHandler<any>,
+    proxyMap: WeakMap<Target, any>,
+    collectionHandlers?: ProxyHandler<any>,
+	
+) {
+	if (!isObject(target)) {
+        console.warn(`不是对象: ${String(target)}`)
+		return target;
+	}
 
-    // 被加了不用代理标记或者不是（只读+响应式）
-    if (
-        target[ReactiveFlags.RAW] &&
-        !(isReadonly && target[ReactiveFlags.IS_REACTIVE])
-    ) {
-        return target;
-    }
+	// 被加了不用代理标记或者不是（只读+响应式）
+	if (
+		target[ReactiveFlags.RAW] &&
+		!(isReadonly && target[ReactiveFlags.IS_REACTIVE])
+	) {
+		return target;
+	}
 
-    const existingProxy = proxyMap.get(target);
-    if (existingProxy) {
-        return existingProxy;
-    }
+    //已有直接返回
+	const existingProxy = proxyMap.get(target);
+	if (existingProxy) {
+		return existingProxy;
+	}
 
-
-    const proxy = new Proxy(target, baseHandlers)
-    proxyMap.set(target, proxy)
-    return proxy;
+    //没有的话就新建，并保存
+	const proxy = new Proxy(target, baseHandlers);
+	proxyMap.set(target, proxy);
+	return proxy;
 }
-
-
+/**
+ * 判断是不是只读
+ * @param value value
+ * @returns boolean
+ */
 export function isReadonly(value: unknown): boolean {
-    return !!(value && (value as Target)[ReactiveFlags.IS_READONLY]);
+	return !!(value && (value as Target)[ReactiveFlags.IS_READONLY]);
 }
-
+/**
+ * 判断是不是reactive
+ * @param value 
+ * @returns 
+ */
 export function isReactive(value: unknown): boolean {
-    if (isReadonly(value)) {
-        return isReactive((value as Target)[ReactiveFlags.RAW]);
-    }
-    return !!(value && (value as Target)[ReactiveFlags.IS_REACTIVE]);
-}
-export function isShallow(value: unknown): boolean {
-    return !!(value && (value as Target)[ReactiveFlags.IS_SHALLOW]);
+	if (isReadonly(value)) {
+		return isReactive((value as Target)[ReactiveFlags.RAW]);
+	}
+	return !!(value && (value as Target)[ReactiveFlags.IS_REACTIVE]);
 }
 
+/**
+ * 判断是不是浅层
+ * @param value 
+ * @returns 
+ */
+export function isShallow(value: unknown): boolean {
+	return !!(value && (value as Target)[ReactiveFlags.IS_SHALLOW]);
+}
+
+/**
+ * 判断是不是被代理过
+ * @param value 
+ * @returns 
+ */
 export function isProxy(value: unknown): boolean {
-    return isReactive(value) || isReadonly(value);
+	return isReactive(value) || isReadonly(value);
 }
 
 /*
