@@ -1,7 +1,7 @@
 //渲染 放在 runtime-core
 import { apiCreateApp } from './apiCreateApp'
 import { ShapeFlags } from '@vue/shared';
-import { effect } from "@vue/reactively"
+import { effect } from "@vue/reactivity";
 import { CVnode, TEXT } from './vnode'
 import { createComponentInstance, setupComponent } from './component'
 

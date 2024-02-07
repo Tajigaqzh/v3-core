@@ -54,7 +54,6 @@ if (args.length === 1) {
  * @param {*} nodeArgs 
  */
 async function build(target, nodeArgs = "c") {
-    // console.log(target, 333);
     // -c执行rollup.config.js配置文件,inherit在父包中输出,-w监听变化
     await execa("rollup", [`-${nodeArgs}`, "--environment", `TARGET:${target}`], { stdio: "inherit" });
 }

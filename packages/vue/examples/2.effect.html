@@ -7,15 +7,26 @@
     
 </head>
 <body>
-    <script src="../../reactively/dist/reactively.global.js"></script>
+    <script src="../../reactivity/dist/reactivity.global.js"></script>
     <script>
-        const {reactive,effect} = vueReactively
+        const {reactive,effect,toRaw,toReactive} = vueReactivity
+
+        console.log(effect);
         let obj ={name:'zs',age:{m:11}}
-        const state = reactive(obj)
+        const state = reactive(obj);
+        console.log(state);
+
 
         effect(()=>{
-            state.name
+            state.name = 12
         })
+        console.log(state);
+        const re = toRaw(state)
+        console.log(re);
+
+        const s2 = reactive([1,2,3,4,5,6])
+        console.log(s2);
+
     </script>
 </body>
 </html>

@@ -3,10 +3,16 @@
   "version": "1.0.0",
   "description": "",
 
+  "dependencies": {
+    "@vue/shared": "workspace:*",
+    "@vue/reactivity": "workspace:*"
+  },
   "buildOptions": {
     "name": "VueRuntimeCore",
     "formats": [
-      "global"
+      "global",
+      "esm-bundler",
+      "cjs"
     ]
   },
   "keywords": [],

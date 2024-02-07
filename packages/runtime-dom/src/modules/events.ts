@@ -58,7 +58,7 @@ export const patchEvent = (el, key, value) => {
             el.addEventListener(eventName, invoker)//添加事件
         } else {//没有   以前删除
             el.removeEventLister(eventName, exists)
-            invokers[eventName] = undefined //清楚缓存
+            invokers[eventName] = undefined //清除缓存
         }
     }
 }

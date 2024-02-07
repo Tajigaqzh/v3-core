@@ -3,10 +3,12 @@ import { camelize, capitalize, hyphenate, isArray, isString } from "@vue/shared"
 const semicolonRE = /[^\\];\s*$/
 const importantRE = /\s*!important$/
 
-type Style = string | Record<string, string | string[]> | null
+type Style = string | Record<string, string | string[]> | null;
+
 export function patchStyle(el: Element, prev: Style, next: Style) {
     const style = (el as HTMLElement).style
     const isCssString = isString(next)
+    //新存在
     if (next && !isCssString) {
         if (prev && !isString(prev)) {
             // 有新的，且有旧的
@@ -34,7 +36,7 @@ function setStyle(
     } else {
         if (val == null) val = ''
         if (name.startsWith('--')) {
-            // custom property definition
+            // 自定义属性
             style.setProperty(name, val)
         } else {
             const prefixed = autoPrefix(style, name)
@@ -55,6 +57,7 @@ function setStyle(
 
 const prefixes = ['Webkit', 'Moz', 'ms']
 const prefixCache: Record<string, string> = {}
+
 // 自动添加前缀
 function autoPrefix(style: CSSStyleDeclaration, rawName: string): string {
     const cached = prefixCache[rawName]

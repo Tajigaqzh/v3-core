@@ -51,7 +51,7 @@ function createConfig(format, output) {
         output,
         plugins: [
             json(),
-            // terser(),
+            terser(),
             typescript({ tsconfig:path.resolve(__dirname,"tsconfig.json")}),
             resolvePlugin() //解析 第三方 插件
         ]
