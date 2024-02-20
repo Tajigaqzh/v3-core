@@ -8,7 +8,14 @@ import { nodeOps } from "./nodeOps";
 import { patchProp } from "./patchProp";
 import { extend, isFunction, isString } from "@vue/shared";
 
+// 导出了
 export * from "@vue/runtime-core";
+
+
+import type {VueText,Fragment,Static,Comment} from "@vue/runtime-core";
+
+// export type {Text,Fragment,Static,Comment}
+
 //vue3 dom全部 操作
 
 declare module "@vue/reactivity" {

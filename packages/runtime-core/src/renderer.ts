@@ -2,9 +2,10 @@
 import {CreateAppFunction, createAppAPI} from "./apiCreateApp";
 import {NOOP, ShapeFlags} from "@vue/shared";
 import { effect } from "@vue/reactivity";
-import {CVnode, Text, VNode, isSameVNodeType, VNodeArrayChildren} from "./vnode";
+import {CVnode, Text, VNode, isSameVNodeType, VNodeArrayChildren, Fragment} from "./vnode";
 import {createComponentInstance, setupComponent} from "./component";
 import {createApp} from "@vue/runtime-dom";
+
 
 /**
  * 从技术上讲，渲染器节点可以是核心渲染器上下文中的任何对象
@@ -142,7 +143,7 @@ function baseCreateRenderer(
 	// 渲染器
 	/**
 	 * 将虚拟节点渲染到dom中
-	 * @param vnode 虚拟接线
+	 * @param vnode 虚拟节点
 	 * @param container 当前虚拟节点挂载的容器
 	 *
 	 * 步骤：
@@ -187,6 +188,10 @@ function baseCreateRenderer(
 				//处理文本
 				processText(n1, n2, container, anchor);
 				break;
+			// 	处理<></>的情况，也即vue3不用写根div
+			case Fragment:
+				processFragment(n1, n2, container)
+				break;
 			default:
 				if (shapeFlag & ShapeFlags.ELEMENT) {
 					//div
@@ -221,6 +226,29 @@ function baseCreateRenderer(
 		if (n1 == null) {
 			//  创建文本  渲染到页面
 			hostInsert((n2.el = hostCreateText(n2.children as string)), container);
+		} else {
+			let el = (n2.el = n1.el)
+			if (n1.children === n2.children) {
+				return
+			}
+			hostSetText(el, n2.children as string);
+		}
+	}
+
+	/**
+	 * 处理无根div的<></>情况
+	 * @param n1
+	 * @param n2
+	 * @param container
+	 */
+	const processFragment = (n1: VNode, n2: VNode, container: RendererElement) => {
+
+		if (n1 == null) {
+			// 直接挂载
+			mountChildren(n2.children as VNode[], container)
+		}else {
+			// dom diff
+			patchKeyedChildren(n1.children,n2.children,container)
 		}
 	}
 
@@ -231,14 +259,14 @@ function baseCreateRenderer(
 	 * @param n1
 	 * @param n2
 	 * @param container
-	 * @param ancher
+	 * @param anchor
 	 */
-	const processElement = (n1: VNode, n2: VNode, container: RendererElement, ancher) => {
+	const processElement = (n1: VNode, n2: VNode, container: RendererElement, anchor: RendererElement) => {
 		if (n1 == null) {
-			mountElement(n2, container, ancher, null);
+			mountElement(n2, container, anchor, null);
 		} else {
 			//更新元素
-			patchElement(n1, n2, container, ancher);
+			patchElement(n1, n2, container, anchor);
 		}
 	}
 
@@ -593,10 +621,11 @@ function baseCreateRenderer(
 	 * @param vnode
 	 */
 	const unmount = (vnode: VNode) => {
-		const {shapeFlag} = vnode
-		if (shapeFlag & ShapeFlags.ELEMENT) {
-			hostRemove(vnode.el);
+		const {shapeFlag, type, children} = vnode;
+		if (type === Fragment) {
+			return unmountChildren(children as VNode[])
 		}
+		hostRemove(vnode.el);
 	}
 
 

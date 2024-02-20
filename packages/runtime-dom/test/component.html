@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>component</title>
+</head>
+<body>
+<script type="module">
+    import {render,Fragment,h} from "../dist/runtime-dom.esm-bundler.js";
+
+
+//     组件的组成有几部分，组件的好处是什么，vue的组件有什么特点
+//     webComponents 兼容性是硬伤（模板 属性attrs 事件  插槽 样式）
+    /**
+     * 组件化（对ui的封装 ，自己的状态，别人给我的状态）
+     * 模块化（对业务逻辑的封装）
+     * @
+     */
+
+    const VueComponent = {
+        data(){
+            //标记成函数，如果是一个对象就可能会涉及到这个对象被共享给多个组件使用，没有法实现私有性
+            return {
+                name:'asjfhd'
+            }
+        },
+        render(){
+        //     允许编译模板，但不建议，效率低，模板编译最好是写好build的时候编译
+            return h(Fragment,[h(Text,"aaa")])
+        }
+
+    }
+</script>
+</body>
+</html>

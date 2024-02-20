@@ -4,7 +4,7 @@
 //注意： createVnode =  h('div',{style；{color:red}},[])
 import { isString, ShapeFlags, isObject, isArray } from "@vue/shared";
 import { RendererElement, RendererNode } from "./renderer";
-import { ReactiveFlags } from "@vue/reactivity";
+import {ReactiveFlags, Ref} from "@vue/reactivity";
 import { AppContext } from "./apiCreateApp";
 // import { Component } from './component'
 
@@ -44,6 +44,31 @@ export const createVNode = (
 export type VNodeChild = VNodeChildAtom | VNodeArrayChildren
 
 
+export type VNodeRef =
+	| string
+	| Ref
+	| ((
+	ref:  any,
+	// ref: Element | ComponentPublicInstance | null,
+	refs: Record<string, any>,
+) => void)
+type VNodeMountHook = (vnode: VNode) => void
+type VNodeUpdateHook = (vnode: VNode, oldVNode: VNode) => void
+
+export type VNodeProps = {
+	key?: string | number | symbol
+	ref?: VNodeRef
+	ref_for?: boolean
+	ref_key?: string
+
+	// vnode hooks
+	onVnodeBeforeMount?: VNodeMountHook | VNodeMountHook[]
+	onVnodeMounted?: VNodeMountHook | VNodeMountHook[]
+	onVnodeBeforeUpdate?: VNodeUpdateHook | VNodeUpdateHook[]
+	onVnodeUpdated?: VNodeUpdateHook | VNodeUpdateHook[]
+	onVnodeBeforeUnmount?: VNodeMountHook | VNodeMountHook[]
+	onVnodeUnmounted?: VNodeMountHook | VNodeMountHook[]
+}
 export function normalizeChildren(vnode, children) {
 	//进行判断
 	let type = 0;
@@ -64,15 +89,16 @@ export function isVnode(vnode) {
 	return vnode._v_isVnode;
 }
 
-//  export const Fragment = Symbol.for('v-fgt') as any as {
-//    __isFragment: true
-//    new (): {
-//      $props: VNodeProps
-//    }
-//  }
 export const Text = Symbol.for("v-txt");
+
 export const Comment = Symbol.for("v-cmt");
 export const Static = Symbol.for("v-stc");
+export const Fragment = Symbol.for('v-fgt') as any as {
+	__isFragment: true
+	new (): {
+		$props: VNodeProps
+	}
+}
 
 export function CVnode(child) {
 	// [ 'text']  [h()]
