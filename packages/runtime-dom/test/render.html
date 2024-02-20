@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>render渲染</title>
+    <style>
+        ul{
+            margin: 0;
+            padding: 0;
+        }
+        li{
+            list-style: none;
+            width: 40px;
+        }
+    </style>
+</head>
+<body>
+<div id="app"></div>
+<script type="module">
+
+    import {render, h, createApp} from "../dist/runtime-dom.esm-bundler.js";
+
+
+    /**
+     * 第一种情况，前序比对
+     * prev a b
+     * next a b c
+     */
+    // render(h('ul', null, [
+    //     h('li', {key: 'a'}, 'a'),
+    //     h('li', {key: 'b'}, 'b')
+    // ]), app)
+    // setTimeout(() => {
+    //     render(h('ul', null, [
+    //         h('li', {key: 'a'}, 'a'),
+    //         h('li', {key: 'b'}, 'b'),
+    //         h('li', {key: 'c'}, 'c'),
+    //
+    //     ]), app)
+    // }, 3000)
+
+
+    /**
+     * 第二种情况，
+     * prev a b
+     * next c a b
+     */
+    // render(h('ul', null, [
+    //     h('li', {key: 'a'}, 'a'),
+    //     h('li', {key: 'b'}, 'b')
+    // ]), app)
+    // setTimeout(() => {
+    //     render(h('ul', null, [
+    //
+    //         h('li', {key: 'a'}, 'a'),
+    //         h('li', {key: 'b'}, 'b'),
+    //         h('li', {key: 'c'}, 'c'),
+    //         // h('li', {key: 'c'}, 'c'),
+    //     ]), app)
+    // }, 2000)
+
+
+    // render(h('div', null,'11'), app)
+    // setTimeout(() => {
+    //
+    //     render(h('p', null, '22'), app)
+    // }, 2000)
+
+
+//     复杂diff
+//     a b [c d e] f g
+//     a b [d c e h] f g
+    render(h('ul', null, [
+        h('li', {key: 'a'}, 'a'),
+        h('li', {key: 'b'}, 'b'),
+        h('li', {key: 'c'}, 'c'),
+        h('li', {key: 'd'}, 'd'),
+        h('li', {key: 'e'}, 'e'),
+        h('li', {key: 'f'}, 'f'),
+        h('li', {key: 'g'}, 'g'),
+    ]), app)
+    setTimeout(() => {
+        render(h('ul', null, [
+
+            h('li', {key: 'a'}, 'a'),
+            h('li', {key: 'b'}, 'b'),
+
+            h('li', {key: 'd'}, 'd'),
+            h('li', {key: 'c'}, 'c'),
+            h('li', {key: 'e'}, 'e'),
+            h('li', {key: 'h'}, 'h'),
+            h('li', {key: 'f'}, 'f'),
+            h('li', {key: 'g'}, 'g'),
+            // h('li', {key: 'c'}, 'c'),
+        ]), app)
+    }, 2000)
+
+</script>
+
+</body>
+</html>

@@ -50,12 +50,18 @@ export interface ComputedRef<T = any> extends WritableComputedRef<T> {
 // 	//返回值
 // 	return new ComputedRefImpl(getter, setter);
 // }
-
+/**
+ * 计算属性内部有一个变量dirty，这个变量控制是否重新执行，默认需要重新执行，
+ * 为true，执行后获取返回结果，缓存起来，再将dirty变为false，
+ * 如果再次获取值，如果dirty为false，直接返回缓存的值，不需要重新执行
+ */
 export class ComputedRefImpl<T> {
 
+	//依赖收集
 	public dep?: Dep = undefined
 
 	private _value!: T
+	//副作用
 	public readonly effect: ReactiveEffect<T>
   
 	public readonly __v_isRef = true
@@ -79,8 +85,11 @@ export class ComputedRefImpl<T> {
 	  this[ReactiveFlags.IS_READONLY] = isReadonly
 	}
   
+	/**
+	 * 编译后是Object.defineProperty，取值的时候才会依赖收集
+	 */
 	get value() {
-	  // the computed ref may get wrapped by other proxies e.g. readonly() #3376
+	  // 
 	  const self = toRaw(this)
 	  if (!self._cacheable || self.effect.dirty) {
 		if (hasChanged(self._value, (self._value = self.effect.run()!))) {
@@ -88,6 +97,7 @@ export class ComputedRefImpl<T> {
 		}
 	  }
 	  trackRefValue(self)
+	//   收集依赖
 	  if (self.effect._dirtyLevel >= DirtyLevels.MaybeDirty) {
 		triggerRefValue(self, DirtyLevels.MaybeDirty)
 	  }

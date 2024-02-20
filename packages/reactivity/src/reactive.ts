@@ -13,7 +13,6 @@ import {
 	shallowReadonlyCollectionHandlers,
 } from "./collectionHandler";
 import { Ref, UnwrapRefSimple } from "./ref";
-import { log } from "console";
 
 export declare const RawSymbol: unique symbol;
 
@@ -136,6 +135,7 @@ function createReactiveObject(
 	collectionHandlers: ProxyHandler<any>,
 	proxyMap: WeakMap<Target, any>
 ) {
+	// 不是对象直接返回提示
 	if (!isObject(target)) {
 		console.warn(`value cannot be made reactive: ${String(target)}`);
 		return target;
@@ -156,7 +156,6 @@ function createReactiveObject(
 	const targetType = getTargetType(target);
 
 	if (targetType === TargetType.INVALID) {
-	
 		return target;
 	}
 	/**

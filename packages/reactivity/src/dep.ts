@@ -13,7 +13,9 @@ export const createDep = (
 	computed?: ComputedRefImpl<any>
 ): Dep => {
 	const dep = new Map() as Dep;
+	// dep的清除函数
 	dep.cleanup = cleanup;
+	// dep的计算属性
 	dep.computed = computed;
 	return dep;
 };

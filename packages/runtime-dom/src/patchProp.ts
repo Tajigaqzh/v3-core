@@ -5,7 +5,11 @@ import { patchClass } from './modules/class'
 import { patchStyle } from './modules/style'
 import { patchAttr } from './modules/attrs'
 import { patchEvent } from './modules/events'
-export const patchProps = (el, key, prevValue, nextValue) => {
+import { RendererOptions } from '@vue/runtime-core'
+
+type DOMRendererOptions = RendererOptions<Node, Element>
+
+export const patchProp:DOMRendererOptions['patchProp'] = (el, key, prevValue, nextValue) => {
   switch (key) {
     case 'class':
       patchClass(el, nextValue, false)
@@ -17,7 +21,7 @@ export const patchProps = (el, key, prevValue, nextValue) => {
       if (/^on[^a-z]/.test(key)) { //是不是事件  onClick
         patchEvent(el, key, nextValue)
       } else {
-        patchAttr(el, key, nextValue)
+        patchAttr(el, key, nextValue,false)
       }
       break;
   }

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>停止</title>
+</head>
+<body>
+<div id="app"></div>
+<script type="module">
+    import {reactive, effect} from '../dist/reactivity.esm-bundler.js'
+
+    const state = reactive({name: "adis"})
+
+    let a = 1;
+    const runner = effect(() => {
+        app.innerHTML = state.name + a
+    })
+
+    runner.effect.stop()
+    // 停止响应式能力，不搜集依赖
+
+    setTimeout(() => {
+        // effect要能停止更新，比如如下情况，name改了4次，但是只需要更新一次，即实现批量更新
+        // state.name="1"
+        // state.name ="2"
+        // state.name = "3";
+        // state.name = "4";
+        a = 100
+        runner.effect.run()
+
+    }, 1000)
+</script>
+
+</body>
+</html>

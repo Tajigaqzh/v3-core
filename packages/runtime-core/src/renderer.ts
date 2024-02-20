@@ -1,275 +1,690 @@
 //渲染 放在 runtime-core
-import { apiCreateApp } from './apiCreateApp'
-import { ShapeFlags } from '@vue/shared';
+import {CreateAppFunction, createAppAPI} from "./apiCreateApp";
+import {NOOP, ShapeFlags} from "@vue/shared";
 import { effect } from "@vue/reactivity";
-import { CVnode, TEXT } from './vnode'
-import { createComponentInstance, setupComponent } from './component'
+import {CVnode, Text, VNode, isSameVNodeType, VNodeArrayChildren} from "./vnode";
+import {createComponentInstance, setupComponent} from "./component";
+import {createApp} from "@vue/runtime-dom";
 
-export function createRender(renderOptionDom) { //实现渲染  vue3 => vnode =>render
-
-  //获取全部的dom 操作
-  const {
-    insert: hostInsert,
-    remove: hostRemove,
-    patchProps: hostPatchProp,
-    createElement: hostCreateElement, //创建元素
-    createText: hostCreateText, // 创建文本
-    createComment: hostCreateComment,
-    setText: hostSetText,
-    setElementText: hostSetElementText,
-  } = renderOptionDom
-
-  //
-  function setupRenderEffect(instance, container) { //effect
-    //创建 effect  
-    effect(function componentEffect() {
-      //需要创建一个effect 在effect中调用render  ,这样render  方法中获取数据会收集这个effect
-      //属性改变重新执行
-      //判断 第一加载
-      console.log(instance);
-      
-      if (!instance.isMounted) {
-        //获取到render 返回值
-        let proxy = instance.proxy //组件的实例
-        //  console.log(proxy)
-        let subTree = instance.subTree = instance.render.call(proxy, proxy)  //执行 render  组件中  创建 渲染 节点  h（）
-        // console.log(subTree) //组件渲染的节点  =》渲染到页面中
-        //渲染子树  创建元素
-        patch(null, subTree, container)
-        instance.isMounted = true
-      } else {
-        console.log('更新')
-        //比对 旧 和新
-        let proxy = instance.proxy
-        const prevTree = instance.subTree //旧的vnode
-        const nextTree = instance.render.call(proxy, proxy)
-        instance.subTree = nextTree //替换
-        patch(prevTree, nextTree, container) //更新  1旧的元素  2新的元素
-      }
-    })
-  }
-  //------------------------------处理组件---------------
-  const mountComponent = (InitialVnode, container) => {
-    //组件的渲染流程  
-    // 1.先有一个组件的实例对象  render (proxy)
-    const instance = InitialVnode.component = createComponentInstance(InitialVnode)
-    //2.解析数据到这个实现对象中
-    setupComponent(instance)
-    //3 创建一个effect 让 render函数执行
-    setupRenderEffect(instance, container)
-  }
-  // 组件的创建
-  const processComponent = (n1, n2, container) => {
-    if (n1 == null) {//你是第一次加载
-      mountComponent(n2, container)
-    } else { //更新
-
-    }
-  }
-  //------------------------处理文本------------
-  function processText(n1, n2, container) {
-    if (n1 == null) {
-      //  创建文本  渲染到页面 =
-      hostInsert(n2.el = hostCreateText(n2.children), container)
-    }
-  }
-
-  //---------------------处理元素-----------
-  function mountChildren(el, children) {
-    //循环
-    for (let i = 0; i < children.length; i++) {
-      // 1[ '张三']   2 [h('div')]
-      let child = CVnode(children[i])
-      //创建 文本  创建元素  
-      patch(null, child, el)
-    }
-  }
-  //加载元素
-  function mountElement(vnode, container) {
-    //递归 渲染  h('div',{},[h('div')]) =》dom操作  =》放到对相应页面
-    //vnode h()
-    const { props, shapeFlag, type, children } = vnode
-    //创建的元素
-    let el = vnode.el = hostCreateElement(type)
-    //添加属性
-    if (props) {
-      for (let key in props) {
-        hostPatchProp(el, key, null, props[key])
-      }
-
-    }
-    //处理children 
-    // h('div',{style:{color:'red'}},'text')
-    // h('div',{style:{color:'red'}},['text'])
-    // h('div',{style:{color:'red'}},[h()])
-    if (children) {
-      if (shapeFlag & ShapeFlags.TEXT_CHILDREN) {
-        //创建为文本元素
-        hostSetElementText(el, children)
-      } else if (shapeFlag & ShapeFlags.ARRAY_CHILDREN) {
-        //递归 patch 
-        mountChildren(el, children)
-      }
-    }
-    //放到对应的位置
-    hostInsert(el, container)
-
-  }
-  // 属性比对
-  const patchProps = (el, oldProps, newProps) => {
-    //注意  ：旧：<div class style 属性>  新： <div class >
-    //旧有这个属性 新的没有这个属性  {color:"red",b:''} {color:"blue",c:''}
-    // 循环 新的
-    if (oldProps != newProps) {
-      for (let key in newProps) {
-        const prev = oldProps[key]
-        const next = newProps[key]
-        if (prev != next) { //不就进行替换
-          hostPatchProp(el, key, prev, next)
-        }
-      }
-    }
-
-    //旧 如果旧的里面的属性，新没有删除这个属性
-    for (let key in oldProps) {
-      if (!(key in newProps)) {
-        hostPatchProp(el, key, oldProps[key], null)
-      }
-    }
-  }
-  //同一个元素比对
-  const patchElement = (n1, n2, container) => {
-    //1属性  <div class style 属性> dd </div> <div class style > </div>
-    //
-    let el = (n2.el = n1.el) //获取真实的节点
-    const oldProps = n1.props || {}
-    const newProps = n2.props || {}
-    patchProps(el, oldProps, newProps) //处理属性
-    //比对  children
-    patchChild(n1, n2, el)
-  }
-  //比对children
-  const patchChild = (n1, n2, el) => {
-    const c1 = n1.children
-    const c2 = n2.children
-    //儿子之间  4 种
-    // 1 旧的有 儿子新的没有儿子   2新的有儿子旧的没有儿子 3 儿子都是 文本 4 都有儿子 并且这些儿子是数组
-
-    //儿子都是 文本   <div class style 属性> dd </div>  <div class style > ff</div>
-    const prevShapeFlage = n1.shapeFlag //旧的标识
-    const newShapeFlage = n2.shapeFlag //新的标识
-    if (newShapeFlage & ShapeFlags.TEXT_CHILDREN) { //文本情况
-      hostSetElementText(el, c2)
-    } else { //不是文本 就是数组（新）： 
-      if (prevShapeFlage & ShapeFlags.ARRAY_CHILDREN) { //之前的是数组
-        //儿子都有 数组
-        patchkeyChild(c1, c2, el)
-      } else { //旧的就是文本
-        //将旧的文本删除
-        hostSetElementText(el, '')   //删除文本
-        //添加 新数组，添加儿子
-        // console.log(c2,66666)
-        mountChildren(el, c2)
-      }
-    }
-
-  }
-  //方法  儿子都是数组的情况
-  const patchkeyChild = (c1, c2, el) => {
-    //vue2: 双指针   vue3:
-
-
-    let i = 0;
-    let e1 = c1.length - 1;
-    let e2 = c2.length - 1;
-    //sync from start :头部比对    (1) 同一位置比对（两个元素不同 停止）   2那个数组没有 停止
-    // 旧的 <div> <p></p> <h1></h1>  </div>   新的 <div><p></p> <h2></h2></div>
-    while (i <= e1 && 1 <= e2) {
-      const n1 = c1[i]
-      const n2 = c2[i]
-      if (isSameVode(n1, n2)) { //递归
-        patch(n1, n2, el)
-      } else {
-        break;//停止
-      }
-      i++// 比对的位置
-    }
-    // aync from end
-    while (i <= e1 && 1 <= e2) {
-      const n1 = c1[i]
-      const n2 = c2[i]
-      if (isSameVode(n1, n2)) { //递归
-        patch(n1, n2, el)
-      } else {
-        break;//停止
-      }
-      e1--// 比对的位置
-      e2--
-    }
-
-  }
-  function processElement(n1, n2, container) {
-    if (n1 == null) {
-
-      mountElement(n2, container)
-    } else {//更新
-      //同一个元素
-      console.log('同一个元素比对')
-      patchElement(n1, n2, container)
-    }
-  }
-  //---------------------------------------
-  const isSameVode = (n1, n2) => { //判断是不是同一个元素
-    return n1.type == n2.type && n1.key == n2.key
-  }
-
-  const unmount = (vnode) => {
-    console.log(vnode, 555)
-    hostRemove(vnode.el)
-  }
-  const patch = (n1, n2, container) => {
-    //针对不同的类型  1 组件   2 元素  3文本
-    //比对  vue3 : 1 判断是不是同一个元素  2同一个元素  （1 props children）
-    //判断是不是同一个元素
-    if (n1 && !isSameVode(n1, n2)) {
-      unmount(n1) //删除元素
-      n1 = null   //组件重新加载
-    }
-    let { shapeFlag, type } = n2
-    switch (type) {
-      case TEXT:
-        //处理文本
-        processText(n1, n2, container)
-        break;
-      default:
-        if (shapeFlag & ShapeFlags.ELEMENT) { //div
-        
-          //处理元素 =》加载组件 一样
-          processElement(n1, n2, container)
-        } else if (shapeFlag & ShapeFlags.STATEFUL_COMPONENT) {
-          //组件
-          processComponent(n1, n2, container)
-        }
-    }
-
-  }
-  // 返回 对象
-  let render = (vnode, container) => { //渲染 
-    //组件初始化 
-    //   console.log(vnode)  //vnode
-    //渲染  第一次   第二次
-    patch(null, vnode, container) // 1 旧的节点  2 当前节点  3 位置
-  }
-  return {
-    createApp: apiCreateApp(render) // 1创建 vnode  在框架种 组件操作 =vnode=》render()
-  }
+/**
+ * 从技术上讲，渲染器节点可以是核心渲染器上下文中的任何对象
+ 逻辑-它们从不直接操作，总是传递给节点op
+ 函数是通过选项提供的，所以内部约束实际上只是
+ 一个通用对象。
+ */
+export interface RendererNode {
+	[key: string]: any;
 }
+
+export type RootRenderFunction<HostElement = RendererElement> = (
+	vnode: VNode | null,
+	container: HostElement,
+	namespace?: ElementNamespace
+) => void;
+
+export type ElementNamespace = "svg" | "mathml" | undefined;
+
+export interface RendererElement extends RendererNode {
+}
+
+//patch函数的类型声明
+type PatchFn = (
+	n1: VNode | null, // 为空表示初次渲染
+	n2: VNode,
+	container: RendererElement,
+	anchor?: RendererNode | null,//插入参考标识
+	parentComponent?: any | null,
+	parentSuspense?: any | null,
+	namespace?: ElementNamespace,
+	slotScopeIds?: string[] | null,
+	optimized?: boolean,
+) => void
+type NextFn = (vnode: VNode) => RendererNode | null
+
+
+type ProcessTextOrCommentFn = (
+	n1: VNode | null,
+	n2: VNode,
+	container: RendererElement,
+	anchor: RendererNode | null,
+) => void
+
+/**
+ * render的参数类型声明
+ */
+export interface RendererOptions<
+	HostNode = RendererNode,
+	HostElement = RendererElement
+> {
+	// 这一部分也定义了dom操作的类型声明
+	patchProp(
+		el: HostElement,
+		key: string,
+		prevValue: any,
+		nextValue: any,
+		namespace?: ElementNamespace,
+		prevChildren?: VNode<HostNode, HostElement>[],
+		parentComponent?: any | null,
+		parentSuspense?: any,
+		unmountChildren?: any
+	): void;
+
+	insert(el: HostNode, parent: HostElement, anchor?: HostNode | null): void;
+
+	remove(el: HostNode): void;
+
+	createElement(
+		type: string,
+		namespace?: ElementNamespace,
+		isCustomizedBuiltIn?: string,
+		vnodeProps?: (any & { [key: string]: any }) | null
+	): HostElement;
+
+	createText(text: string): HostNode;
+
+	createComment(text: string): HostNode;
+
+	setText(node: HostNode, text: string): void;
+
+	setElementText(node: HostElement, text: string): void;
+
+	parentNode(node: HostNode): HostElement | null;
+
+	nextSibling(node: HostNode): HostNode | null;
+
+	querySelector?(selector: string): HostElement | null;
+
+	setScopeId?(el: HostElement, id: string): void;
+
+	cloneNode?(node: HostNode): HostNode;
+
+	insertStaticContent?(
+		content: string,
+		parent: HostElement,
+		anchor: HostNode | null,
+		namespace: ElementNamespace,
+		start?: HostNode | null,
+		end?: HostNode | null
+	): [HostNode, HostNode];
+}
+
+export interface Renderer<HostElement = RendererElement> {
+	render: RootRenderFunction<HostElement>;
+	createApp: CreateAppFunction<HostElement>;
+}
+
+
+function baseCreateRenderer<
+	HostNode = RendererNode,
+	HostElement = RendererElement
+>(options: RendererOptions<HostNode, HostElement>): Renderer<HostElement>;
+
+function baseCreateRenderer(
+	options: RendererOptions,
+	createHydrationFns?: any
+): any {
+	const {
+		insert: hostInsert,
+		remove: hostRemove,
+		patchProp: hostPatchProp,
+		createElement: hostCreateElement,
+		createText: hostCreateText,
+		createComment: hostCreateComment,
+		setText: hostSetText,
+		setElementText: hostSetElementText,
+		parentNode: hostParentNode,
+		nextSibling: hostNextSibling,
+		setScopeId: hostSetScopeId = NOOP,
+		insertStaticContent: hostInsertStaticContent,
+	} = options;
+
+
+	// 渲染器
+	/**
+	 * 将虚拟节点渲染到dom中
+	 * @param vnode 虚拟接线
+	 * @param container 当前虚拟节点挂载的容器
+	 *
+	 * 步骤：
+	 * 1. 卸载旧的节点
+	 * 2.更新 之前渲染过了，现在再渲染，之前渲染过一次，产生了虚拟节点，再次渲染产生的虚拟节点
+	 * 3.初始挂载
+	 */
+	const render: RootRenderFunction = (vnode, container) => {
+		if (vnode == null) {
+			if (container._vnode) {
+				// 之前渲染过了，现在要移除掉
+				unmount(container._vnode);
+				// 虚拟dom中存放了真实dom
+			}
+			// unmount(container._vnode);
+		} else {
+			patch(container._vnode || null, vnode, container);
+		}
+		container._vnode = vnode;
+	}
+
+
+	/**
+	 * patch，比对并挂载，diff算法
+	 */
+	const patch: PatchFn = (n1: VNode, n2: VNode, container, anchor = null) => {
+		if (n1 === n2) {
+			return
+		}
+
+		//n1和n2是不是同一个元素，更新逻辑
+		if (n1 && !isSameVNodeType(n1, n2)) {
+			anchor = getNextHostNode(n1)
+			unmount(n1);
+			n1 = null;
+		}
+
+		const {type, shapeFlag} = n2
+
+		switch (type) {
+			case Text:
+				//处理文本
+				processText(n1, n2, container, anchor);
+				break;
+			default:
+				if (shapeFlag & ShapeFlags.ELEMENT) {
+					//div
+					//处理元素 =>加载组件 一样
+					processElement(n1, n2, container, anchor);
+				} else if (shapeFlag & ShapeFlags.STATEFUL_COMPONENT) {
+					//组件
+					// processComponent(n1, n2, container);
+				}
+				break;
+		}
+	}
+	/**
+	 * 获取下一个根兄弟节点，用于标记anchor
+	 * @param vnode
+	 */
+	const getNextHostNode: NextFn = vnode => {
+		if (vnode.shapeFlag & ShapeFlags.COMPONENT) {
+			return getNextHostNode(vnode.component!.subTree)
+		}
+		return hostNextSibling((vnode.anchor || vnode.el)!)
+	}
+
+
+	/**
+	 * 处理文本
+	 * @param n1
+	 * @param n2
+	 * @param container
+	 */
+	const processText: ProcessTextOrCommentFn = (n1, n2, container) => {
+		if (n1 == null) {
+			//  创建文本  渲染到页面
+			hostInsert((n2.el = hostCreateText(n2.children as string)), container);
+		}
+	}
+
+
+	/**
+	 * TODO - 处理元素
+	 * 处理元素，分为挂载和更新
+	 * @param n1
+	 * @param n2
+	 * @param container
+	 * @param ancher
+	 */
+	const processElement = (n1: VNode, n2: VNode, container: RendererElement, ancher) => {
+		if (n1 == null) {
+			mountElement(n2, container, ancher, null);
+		} else {
+			//更新元素
+			patchElement(n1, n2, container, ancher);
+		}
+	}
+
+
+	/**
+	 * 递归遍历虚拟节点，将其变为真实节点
+	 * @param vnode
+	 * @param container
+	 * @param anchor
+	 * @param namespace
+	 */
+	const mountElement = (vnode: VNode,
+						  container: RendererElement,
+						  anchor: RendererNode | null,
+						  namespace: ElementNamespace) => {
+		let el: RendererElement;
+		const {props, shapeFlag, children} = vnode;
+
+		// 创建元素
+		el = vnode.el = hostCreateElement(
+			vnode.type as string,
+			namespace,
+			props && props.is,
+			props);
+
+		// 处理props
+		if (props) {
+			for (const key in props) {
+				hostPatchProp(el, key, null, props[key]);
+			}
+		}
+
+		if (shapeFlag & ShapeFlags.TEXT_CHILDREN) {
+			hostSetElementText(el, children as string)
+		}
+
+		if (shapeFlag & ShapeFlags.ARRAY_CHILDREN) {
+			mountChildren(children as VNode[], el);
+		}
+
+		hostInsert(el, container, anchor);
+
+	}
+
+	/**
+	 * 同一个元素比对
+	 * @param n1
+	 * @param n2
+	 * @param container
+	 */
+	const patchElement = (n1, n2, container, anchor) => {
+		//1属性  <div class style 属性> dd </div> <div class style > </div>
+		//
+		let el = (n2.el = n1.el); //获取真实的节点
+
+		const oldProps = n1.props || {};
+		const newProps = n2.props || {};
+		patchProps(el, oldProps, newProps); //处理属性
+		//比对  children
+		patchChildren(n1, n2, el);
+	};
+
+
+	/**
+	 * 比对双方的children
+	 */
+	const patchChildren = (n1: VNode, n2: VNode, container: RendererElement) => {
+		const c1 = n1.children;
+		const c2 = n2.children;
+		//儿子之间  有大类4 种
+		// 1 旧的有 儿子新的没有儿子   2新的有儿子旧的没有儿子 3 儿子都是 文本 4 都有儿子 并且这些儿子是数组
+
+		//儿子都是 文本   <div class style 属性> dd </div>  <div class style > ff</div>
+		/**
+		 * 老的是数组，新的没儿子
+		 * 老的没儿子，新的是数组
+		 * 老的是文本 新的没儿子
+		 * 老的是空 新的是文本
+		 * 新的老的都没儿子
+		 * 老儿子是文本 新的儿子是文本
+		 * 老的儿子是数组 新的是文本
+		 * 老的儿子是数组，新的是数组
+		 *
+		 * 全量diff算法  全量diff算法从根开始比对，比到最终的子节点
+		 * 递归先序 深度便利 （全量diff，比较小号性能，有些节点不需要diff，vue中通过patchFlag标记类型，减少比对）
+		 * 只比较动态节点，静态节点不需要比对
+		 * patchFlag+blockTree，vue3的编译优化  但是只有写模板的时候才会有，手写render函数，h函数，jsx没有
+		 *
+		 */
+		const prevShapeFlag = n1.shapeFlag; //旧的标识
+		const newShapeFlag = n2.shapeFlag; //新的标识
+
+		// 新的是文本，旧的是数组、文本、空
+		if (newShapeFlag & ShapeFlags.TEXT_CHILDREN) {
+			// 旧的是数组
+			if (prevShapeFlag & ShapeFlags.ARRAY_CHILDREN) {
+				unmountChildren(c1 as VNode[])
+			}
+			// 旧的是文本或空，新的是文本
+			if (c2 !== c1) {
+				hostSetElementText(container, c2 as string)
+			}
+
+		} else {
+			// 老的是文本或者空或者数组
+			if (prevShapeFlag & ShapeFlags.ARRAY_CHILDREN) {
+				if (newShapeFlag & ShapeFlags.ARRAY_CHILDREN) {
+					/**
+					 * 旧的是数组，新的也是数组，最复杂的情况，核心diff，最复杂的情况
+					 */
+					patchKeyedChildren(c1, c2, container);
+				} else {
+					unmountChildren(c1 as VNode[])
+				}
+			} else {
+				// 	旧的儿子是文本或者空
+				// 	新的儿子是数组或空
+				if (prevShapeFlag & ShapeFlags.TEXT_CHILDREN) {
+					hostSetElementText(container, '')
+				}
+				if (newShapeFlag & ShapeFlags.ARRAY_CHILDREN) {
+					mountChildren(c2 as VNode[], container)
+				}
+			}
+		}
+	};
+
+
+	const unmountChildren = (children: VNode[]) => {
+		for (let i = 0; i < children.length; i++) {
+			unmount(children[i])
+		}
+	}
+	/**
+	 * 比对儿子
+	 * @param c1
+	 * @param c2
+	 * @param el
+	 */
+	const patchKeyedChildren = (c1, c2, el) => {
+		//vue2: 双指针   vue3:
+
+		let i = 0;
+		let e1 = c1.length - 1;//旧的最后一个索引
+		let e2 = c2.length - 1;//新的最后一个索引
+
+		// 1.sync from start :头部比对    (1) 同一位置比对（两个元素不同 停止）   2那个数组没有 停止
+		// 旧的 <div> <p></p> <h1></h1>  </div>   新的 <div><p></p> <h2></h2></div>
+		// (a b) c
+		// (a b) d e
+		while (i <= e1 && 1 <= e2) {
+			const n1 = c1[i];
+			const n2 = c2[i];
+			if (isSameVNodeType(n1, n2)) {
+				//递归
+				patch(n1, n2, el);
+			} else {
+				break; //停止
+			}
+			i++; // 比对的位置
+		}
+		// 2.aync from end
+		// a (b c)
+		// d e (b c)
+		while (i <= e1 && 1 <= e2) {
+			const n1 = c1[e1];
+			const n2 = c2[e2];
+			if (isSameVNodeType(n1, n2)) {
+				//递归
+				patch(n1, n2, el);
+			} else {
+				break; //停止
+			}
+			e1--; // 比对的位置
+			e2--;
+		}
+
+		//3. 正常顺序，mount 新增.同时处理前后
+		// (a b)
+		// (a b) c
+		// i = 2, e1 = 1, e2 = 2
+		// (a b)
+		// c (a b)
+		// i = 0, e1 = -1, e2 = 0
+		if (i > e1) {
+			// 	新的多,需要新增
+			while (i <= e2) {
+				const nextPos = e2 + 1;
+				const anchor = nextPos < c2.length ? (c2[nextPos].el) : null;
+				// anchor 判断是在前面插入还是在后面插入，如果e2+1小于c2的长度，说明是在前面插入，否则是在后面插入
+				patch(null, c2[i], el, anchor);
+				i++;
+			}
+		} else if (i > e2) {
+			// 旧的多，需要卸载
+			while (i <= e1) {
+				unmount(c1[i]);
+				i++;
+			}
+			// 	以上的部分是处理头部和尾部的情况，只是一些特殊的情况，不是所有的情况，最常见的还是乱序的情况
+		} else {
+			// 5. unknown sequence 乱序
+			/**
+			 * a b [c d e] f g
+			 * a b [d c e h] f g
+			 * i = 2, e1 = 4, e2 = 5
+			 * 为了找到最长递增子序列，需要一个映射表，
+			 * 用一个数组表示哪些节点被patch过，哪些没有被patch过
+			 * 找到新的需要本patch的节点再旧的节点中的位置
+			 * a b [d c e h] f g ----->[3,2,4,0]
+			 */
+
+				//此时就要考虑复用节点
+			const s1 = i;//旧的需要变更的开始索引 s1 - e1  [c d e]
+			const s2 = i;//新的需要变更的开始索引 s2 - e2  [d c e h]
+			const keyToNewIndexMap: Map<string | number | symbol, number> = new Map();
+
+			const toBePatched = e2 - s2 + 1; // 新的需要变更的长度，新的儿子需要有这么多个节点被patch
+
+			const newIndexToOldIndex = new Array(toBePatched).fill(0)
+			//[4,3,5,0]
+			//根据新的需要被patch的长度创建一个数组
+
+
+			// 以新的node的乱序的长度创建一个映射表，用旧的节点在新的乱序表中找，如果有就复用。没有就删除
+			for (let i = s2; i <= e2; i++) {
+				keyToNewIndexMap.set(c2[i].key, i);
+			}
+
+			for (let i = s1; i <= e1; i++) {
+				const prevChild = c1[i];
+				const newIndex = keyToNewIndexMap.get(prevChild.key);
+				if (newIndex == undefined) {
+					// 旧的有新的没有，删除
+					unmount(prevChild);
+				} else {
+					// 原来是[0,0,0,0],
+					// 让被patched过的索引用老节点的索引作为标识，加1是为了防止防止索引为0的情况污染数据，a在旧的索引为0，新的索引也为0
+					/**
+					 * +1是为了避免这种情况
+					 * [a e f b c] m n
+					 * [a b c e f] m n
+					 */
+					newIndexToOldIndex[newIndex - s2] = i + 1;
+
+					// 旧的有新的也有，复用,用老的节点去比对新的节点
+					patch(prevChild, c2[newIndex], el);//这里只是比较自己的的属性和儿子，并没有移动
+				}
+			}
+			// 考虑移动问题，newIndexToOldIndex = [4,3,5,0]，0就是新增
+			// console.log(newIndexToOldIndex)
+
+			const increasingNewIndexSequence = getLongestSubSequence(newIndexToOldIndex);
+			console.log(increasingNewIndexSequence)
+
+			let j = increasingNewIndexSequence.length - 1;//取出最后一个索引
+
+			/**
+			 * dom操作只能insertBefore，不能insertAfter，所以需要倒序插入，可以先插入新增的无法复用的节点，
+			 * 再根据映射表找到可以复用的节点插入，插入顺序如下
+			 * h f g
+			 * e h f g
+			 * c e h f g
+			 * d c e h f g
+			 */
+
+			// 倒序遍历to be patched的数组，找到新增的节点，插入，toBepatched是新的需要被patch的节点的格式
+			for (let i = toBePatched - 1; i >= 0; i--) {
+				// s1是新vNode需要变更的开始索引，i是需要变更的节点数据的索引
+				// console.log(s2 + i)//a b [d c e h] f g 输出结果是 5 4 3 2
+				const currentIndex = s2 + i;
+				const curNode = c2[currentIndex];
+				// 获取下一个节点的位置方便insertBefore
+				const anchor = c2[currentIndex + 1]?.el;
+
+				if (newIndexToOldIndex[i] === 0) {
+					// 新的节点无法被复用，直接插入
+					patch(null, curNode, el, anchor);
+				} else {
+					//
+					/**
+					 * a b [c d e] f g
+					 * a b [d c e h] f g
+					 * 插入可以复用的节点，但是这样有一个问题，有些之前的节点没有被复用，这里插入了三次
+					 * 直接使用hostInsert插入并没有复用，这里插入只需要把d插入到c的前面，c已经被复用了，只需要（移动）一下就可以了
+					 * 可以实现c e 节点的复用
+					 * 所以要求最长递增子序列，newIndexToOldIndex = [4,3,5,0]，0就是新增，这里存的就是在旧的节点中的索引
+					 * 4 3 5
+					 * 先找到4 5 或者 3 5
+					 * 再把另外一个移动一下
+					 */
+
+					// 这里需要判断当前的i和j如果相等，说明是最长递增子序列，不需要移动
+					if (i === increasingNewIndexSequence[j]) {
+						// 如果比对发现当前这一项和序列中相等，说明是最长递增子序列，不需要移动
+						j--;
+					} else {
+						// 元素需要移动
+						hostInsert(curNode.el, el, anchor);
+					}
+
+				}
+
+			}
+
+
+		}
+	};
+
+	/**
+	 * 属性比对
+	 * @param el
+	 * @param oldProps
+	 * @param newProps
+	 */
+	const patchProps = (el, oldProps, newProps) => {
+		//注意  ：旧：<div class style 属性>  新： <div class >
+		//旧有这个属性 新的没有这个属性  {color:"red",b:''} {color:"blue",c:''}
+		// 循环 新的
+		if (oldProps != newProps) {
+			for (let key in newProps) {
+				const prev = oldProps[key];
+				const next = newProps[key];
+				if (prev != next) {
+					//不就进行替换
+					hostPatchProp(el, key, prev, next);
+				}
+			}
+		}
+
+	}
+
+
+	/**
+	 * 挂载儿子
+	 * @param el
+	 * @param children
+	 */
+	const mountChildren = (children: VNode[], el: RendererElement) => {
+		//循环
+		for (let i = 0; i < children.length; i++) {
+			// 1[ '张三']   2 [h('div')]
+			let child = CVnode(children[i]);
+			//创建 文本  创建元素
+			patch(null, child as VNode, el);
+		}
+	}
+
+
+	/**
+	 * 卸载
+	 * @param vnode
+	 */
+	const unmount = (vnode: VNode) => {
+		const {shapeFlag} = vnode
+		if (shapeFlag & ShapeFlags.ELEMENT) {
+			hostRemove(vnode.el);
+		}
+	}
+
+
+	return {
+		render,
+		createApp: createAppAPI(render)
+	}
+}
+
+/**
+ * 最长递增子序列算法
+ * @param arr
+ */
+function getLongestSubSequence(arr: number[]): number[] {
+	// (贪心+二分查找)求个数
+	const result = [0];
+	const len = arr.length;
+	// 忽略数组为0的情况，为0说明是新增节点
+
+	const p = result.slice();//复制一份，存储上一个的索引
+
+	// 用来存储标记的索引，内容无所谓，主要是和数组的长度一致
+	for (let i = 0; i < len; i++) {
+		const arrI = arr[i];
+		if (arrI !== 0) {
+			let resultLastIndex = result[result.length - 1]
+			//获取结果集中的最后一项，和arrI进行比较如果arrI大于resultLastIndex则直接push，
+			// 否则二分查找找到第一个比arrI大的那一项，用arrI替换
+			if (arr[resultLastIndex] < arrI) {
+				result.push(i);
+				p[i] = resultLastIndex;//记录上一次最后一项的索引
+				continue;
+			}
+			//     如果arrI小于resultLastIndex则二分查找找到第一个比arrI大的那一项，用arrI替换
+
+			let left = 0;
+			let right = result.length - 1;
+			while (left < right) {
+				const mid = (left + right) >> 1
+
+				if (arr[result[mid]] < arrI) {
+					left = mid + 1;
+				} else {
+					right = mid;
+				}
+			}
+			p[i] = result[left - 1];//记录，记录前一项的索引
+
+			//start和end会重合，直接用当前的索引替换
+			result[left] = i;
+		}
+
+	}
+
+	// 实现倒序追踪
+	let i = result.length;//总长度
+	let last = result[result.length - 1];
+
+	while (i-- > 0) {
+		result[i] = last;//最后一项是正确的
+		last = p[last];//通过最后一项找到对应的结果，将他作为最后一项来进行追踪
+	}
+
+	return result;
+}
+
+
+
+/**
+ * createRenderer函数接受两个通用参数HostNode和HostElement，它们对应于主机环境中的Node和Element类型。
+ * 例如，对于运行时dom，HostNode将是dom“Node”接口，而HostElement将是dom的“Element”接口。
+ * 自定义渲染器可以像这样传入特定于平台的类型
+ * @param options
+ */
+export function createRenderer<
+	HostNode = RendererNode,
+	HostElement = RendererElement
+>(options: RendererOptions<HostNode, HostElement>) {
+	return baseCreateRenderer<HostNode, HostElement>(options);
+}
+
+
+
 
 
 // 给组件 创建一个instance  添加相关信息
 //  处理setup  中context  有四参数
 // proxy 为方便取值
-
 
 // render  (1) setup 返回值是一个函数就是render   (2) component render
 // 如果  setup 的返回值 是一个函数就执行这render  源码中有一个判断

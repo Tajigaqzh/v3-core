@@ -1,4 +1,4 @@
-import { toRaw, toReactive, toReadonly } from './reactive'
+import {toRaw, toReactive, toReadonly} from './reactive'
 import {
   ITERATE_KEY,
   MAP_KEY_ITERATE_KEY,
@@ -6,9 +6,10 @@ import {
   trigger,
 } from './reactiveEffect'
 import { ReactiveFlags, TrackOpTypes, TriggerOpTypes } from './constants'
-import { capitalize, hasChanged, hasOwn, isMap, toRawType } from '@vue/shared'
+import {hasChanged, hasOwn, isMap, toRawType} from '@vue/shared'
 
 type CollectionTypes = IterableCollections | WeakCollections
+
 
 type IterableCollections = Map<any, any> | Set<any>
 type WeakCollections = WeakMap<any, any> | WeakSet<any>
@@ -126,11 +127,9 @@ function deleteEntry(this: CollectionTypes, key: unknown) {
 function clear(this: IterableCollections) {
   const target = toRaw(this)
   const hadItems = target.size !== 0
-  const oldTarget = false
-    ? isMap(target)
+  const oldTarget = isMap(target)
       ? new Map(target)
       : new Set(target)
-    : undefined
   // forward the operation before queueing reactions
   const result = target.clear()
   if (hadItems) {
@@ -195,6 +194,7 @@ function createIterableMethod(
         TrackOpTypes.ITERATE,
         isKeyOnly ? MAP_KEY_ITERATE_KEY : ITERATE_KEY,
       )
+    //迭代器
     // return a wrapped iterator which returns observed versions of the
     // values emitted from the real iterator
     return {

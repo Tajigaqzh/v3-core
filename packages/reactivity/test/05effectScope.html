@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>effectScope</title>
+</head>
+<body>
+<script type="module">
+    import {reactive, effect,effectScope} from '../dist/reactivity.esm-bundler.js'
+
+
+    (()=>{
+        const state0 = reactive({name: "adis"})
+        let runner = effect(() => {
+            console.log(state0.name)
+        })
+
+        runner.effect.stop();
+        setTimeout(() => {
+            state0.name = "adis2"
+        }, 2000);
+    })();
+
+    ;(()=>{
+        const state0 = reactive({name: "adis"})
+        const runner = effect(() => {
+            console.log(state0.name)
+        })
+
+        runner.effect.stop();
+        setTimeout(() => {
+            state0.name = "adis2"
+        }, 2000);
+    })()
+    // 没有effectScope的情况下，要停止依赖收集，需要手动调用runner.effect.stop()，
+    // 如果在多个effect中，需要手动调用多次
+    // 有了effectScope，可以自动停止多个effect依赖收集
+
+    const scope = effectScope()
+    scope.run(()=>{
+        const state = reactive({name: "adis"})
+        effect(() => {
+            console.log(state.name)
+        })
+
+        setTimeout(() => {
+            state.name = "adis2"
+        }, 2000)
+
+    })
+
+    scope.run(()=>{
+        const state2 = reactive({age:30})
+        effect(() => {
+            console.log(state2.age)
+        })
+
+        setTimeout(() => {
+            state2.age = 31
+        }, 2000)
+    })
+
+    // 一次性停止该scope中的所有的effect依赖收集
+    scope.stop();
+
+//     测试嵌套的effectScope
+    console.log("--------------------------------------------")
+    const scope2 = effectScope()
+
+    console.log("scope2",scope2)
+    scope2.run(()=>{
+        const state = reactive({name: "adis nested"})
+        effect(() => {
+            console.log(state.name)
+        })
+
+        setTimeout(() => {
+            state.name = "adis2"
+        }, 2000)
+
+        const scope3 = effectScope()
+        scope3.run(()=>{
+            const state2 = reactive({age:33})
+            effect(() => {
+                console.log(state2.age)
+            })
+
+            setTimeout(() => {
+                state2.age = 31
+            }, 2000)
+        })
+        // scope3.stop()
+    })
+
+    scope2.stop()
+
+</script>
+
+</body>
+</html>

@@ -62,8 +62,6 @@ export { trigger, track, ITERATE_KEY } from "./reactiveEffect";
 
 export { TrackOpTypes, TriggerOpTypes, ReactiveFlags } from "./constants";
 
-export {} from "../types";
-
 export {
 	effectScope,
 	EffectScope,

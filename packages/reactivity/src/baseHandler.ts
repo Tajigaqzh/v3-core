@@ -200,6 +200,12 @@ class BaseReactiveHandler implements ProxyHandler<Target> {
     ) {
     }
 
+    /**
+     * 获取属性拦截器
+     * @param target
+     * @param key
+     * @param receiver
+     */
     get(target: Target, key: string | symbol, receiver: object) {
         const isReadonly = this._isReadonly,
             shallow = this._shallow;
@@ -210,6 +216,7 @@ class BaseReactiveHandler implements ProxyHandler<Target> {
         } else if (key === ReactiveFlags.IS_SHALLOW) {
             return shallow;
         } else if (key === ReactiveFlags.RAW) {
+            // 返回原始对象
             if (
                 receiver ===
                 (isReadonly
@@ -232,6 +239,7 @@ class BaseReactiveHandler implements ProxyHandler<Target> {
 
         const targetIsArray = isArray(target);
 
+        //处理数组的特殊情况
         if (!isReadonly) {
             if (targetIsArray && hasOwn(arrayInstrumentations, key)) {
                 return Reflect.get(arrayInstrumentations, key, receiver);
@@ -243,11 +251,14 @@ class BaseReactiveHandler implements ProxyHandler<Target> {
 
         const res = Reflect.get(target, key, receiver);
 
+        //如果是symbol或者是不可追踪的key，直接返回
         if (isSymbol(key) ? builtInSymbols.has(key) : isNonTrackableKeys(key)) {
             return res;
         }
 
+        // 收集依赖
         if (!isReadonly) {
+            // 属性和effect是多对多的关系
             track(target, TrackOpTypes.GET, key);
         }
 
@@ -316,11 +327,11 @@ class MutableReactiveHandler extends BaseReactiveHandler {
                 ? Number(key) < target.length
                 : hasOwn(target, key);
         //判断是新增还是修改，true的话就是修改，
-
-
         const result = Reflect.set(target, key, value, receiver);
+
         // 如果目标是原始原型链中的某个东西，则不要触发
         if (target === toRaw(receiver)) {
+            // 找到对应的effect使用trigger函数触发依赖
             if (!hadKey) {
                 trigger(target, TriggerOpTypes.ADD, key, value);
             } else if (hasChanged(value, oldValue)) {
@@ -335,6 +346,7 @@ class MutableReactiveHandler extends BaseReactiveHandler {
         const oldValue = (target as any)[key];
         const result = Reflect.deleteProperty(target, key);
         if (result && hadKey) {
+            // 找到对应的effect使用trigger函数触发依赖
             trigger(target, TriggerOpTypes.DELETE, key, undefined, oldValue);
         }
         return result;
@@ -381,7 +393,7 @@ class ReadonlyReactiveHandler extends BaseReactiveHandler {
         return true;
     }
 }
-
+// 存放代理对象的容器
 export const mutableHandlers: ProxyHandler<object> =
     /*#__PURE__*/ new MutableReactiveHandler();
 

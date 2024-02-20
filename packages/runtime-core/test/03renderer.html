@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<title>createRenderer</title>
+	</head>
+	<body>
+		<script type="module">
+			import { createRenderer } from "../dist/runtime-core.esm-bundler.js";
+			// 创建渲染器，这里只是创建了一个渲染器，但是并没有实现具体的渲染器
+
+			const renderer = createRenderer({
+				insert: (child, parent, anchor) => {
+					console.log("insert", child, parent, anchor);
+				},
+				remove: (child) => {
+					console.log("remove", child);
+				},
+				patchProp: (el, key, prevValue, nextValue) => {
+					console.log("patchProp", el, key, prevValue, nextValue);
+				},
+				createText: (text) => {
+					console.log("createText", text);
+				},
+				createElement: (tag) => {
+					console.log("createElement", tag);
+				},
+			});
+			console.log(renderer);
+			renderer.render(h('h1', null, 'hello world'))
+		</script>
+	</body>
+</html>

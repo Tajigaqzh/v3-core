@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<title>createApp</title>
+	</head>
+	<body>
+		<script type="module">
+			import { createApp } from "../dist/runtime-dom.esm-bundler.js";
+			// vue的组成部分：区分编译时和运行时（编译是指将模板语法编译为函数）
+			/**
+			 * 运行时又分为两个部分，一个是runtime-core，一个是runtime-dom
+             * 
+			 * runtime-core：核心运行时，包含了vue的核心功能，比如响应式数据（从reactivity中导入的），虚拟dom，部分其他常用api函数等
+			 * 它定义了渲染器的接口，但是并没有实现具体的渲染器，定义了createApp函数，但是并没有实现
+			 * 
+             * runtime-dom：运行时dom，实现了runtime-core中定义的渲染器接口，提供了具体的渲染器实现，比如createApp函数
+			 *  runtime-dom是vue针对浏览器环境的渲染器实现，它提供了一些针对浏览器环境的api（dom api）
+			 *
+			 * 用户也可根据自身需求以及平台特点，自行实现渲染器，比如vue3的ssr渲染器，vue3的weex渲染器等
+             * 
+             *  runtime-core会调用具体的渲染器实现，比如runtime-dom，把虚拟节点转换成真实节点，即借助runtime-dom调用浏览器的dom api进行渲染
+			 *
+			 */
+
+			console.log(createApp);
+		</script>
+	</body>
+</html>

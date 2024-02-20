@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>watch</title>
+</head>
+<body>
+<script type="module">
+import {watch} from"../dist/runtime-core.esm-bundler.js";
+import {reactive} from"../../reactivity/dist/reactivity.esm-bundler.js";
+
+const state = reactive({name: "adis"});
+
+watch(()=>state.name, (newVal, oldVal)=>{
+    console.log(newVal, oldVal)
+})
+state.name = "adis2"
+console.log(state)
+
+
+</script>
+
+
+
+</body>
+</html>
