@@ -264,7 +264,9 @@ function baseCreateRenderer(
 		setupRenderEffect(instance, container, anchor);
 	};
 
-	function updatePreRender(newInstance, oldInstance) {}
+	function updatePreRender(newInstance, oldInstance) {
+		//TODO 先更新一下属性
+	}
 	/**
 	 * 渲染核心
 	 * @param instance
