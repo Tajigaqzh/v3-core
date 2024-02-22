@@ -79,7 +79,7 @@ export let pauseScheduleStack = 0;
 export function effect<T = any>(
 	fn: () => T,
 	options?: ReactiveEffectOptions
-): ReactiveEffectRunner {
+): ReactiveEffectRunner {3
 	if ((fn as ReactiveEffectRunner).effect instanceof ReactiveEffect) {
 		fn = (fn as ReactiveEffectRunner).effect.fn;
 	}

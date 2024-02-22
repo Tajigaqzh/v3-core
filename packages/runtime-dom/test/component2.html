@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<title>component</title>
+	</head>
+	<body>
+		<div id="app"></div>
+		<script type="module">
+			import { render, Fragment, h } from "../dist/runtime-dom.esm-bundler.js";
+
+			//     组件的组成有几部分，组件的好处是什么，vue的组件有什么特点
+			//     webComponents 兼容性是硬伤（模板 属性attrs 事件  插槽 样式）
+			/**
+			 * 组件化（对ui的封装 ，自己的状态，别人给我的状态）
+			 * 模块化（对业务逻辑的封装）
+			 *
+			 * attr和props区别
+			 * props是浅响应式，用的shallowReactive
+			 * attrs在开发环境是响应式，在生产环境不是响应式，自己无法消费的数据可以快速传递给其他组件
+			 * 事件
+             * 
+             * 处理props和attrs  有问题
+			 */
+
+			const VueComponent = {
+				props: {
+					a: Object,
+					b: Number,
+				},
+                // ab用props接收了，所以是props是响应式的c没有接收，就是attr
+				// attrs:{
+				//     att1:111,
+				//     att2:222
+				// },
+
+				data() {
+					//标记成函数，如果是一个对象就可能会涉及到这个对象被共享给多个组件使用，没有法实现私有性
+					return {
+						name: "张三",
+					};
+				},
+
+				render(proxy) {
+                    console.log(proxy,"proxy")
+					//
+					return h(Fragment, null, [h("h1",  proxy.name)]);
+				},
+			};
+
+			render(h(VueComponent, { a: 1, b: 2, c: 3 }), app);
+		</script>
+	</body>
+</html>

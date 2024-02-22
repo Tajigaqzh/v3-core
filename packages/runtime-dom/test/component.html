@@ -5,6 +5,7 @@
     <title>component</title>
 </head>
 <body>
+<div id="app"></div>
 <script type="module">
     import {render,Fragment,h} from "../dist/runtime-dom.esm-bundler.js";
 
@@ -14,22 +15,48 @@
     /**
      * 组件化（对ui的封装 ，自己的状态，别人给我的状态）
      * 模块化（对业务逻辑的封装）
-     * @
+     *
+     * attr和props区别
+     * props是浅响应式，用的shallowReactive
+     * attrs在开发环境是响应式，在生产环境不是响应式，自己无法消费的数据可以快速传递给其他组件
+     * 事件
      */
 
     const VueComponent = {
+        props: {
+            a: "111"
+        },
+
+        attrs: {
+            aaa: "adssd"
+        },
         data(){
             //标记成函数，如果是一个对象就可能会涉及到这个对象被共享给多个组件使用，没有法实现私有性
             return {
-                name:'asjfhd'
+                name: 1,
+                age: 18
             }
         },
-        render(){
+        render(proxy) {
+            console.log(proxy);
+            // 不要在render中改数据，会触发多次更新引起数据混乱
+            // setTimeout(()=>{
+            //     proxy.name++
+            // },1000)
         //     允许编译模板，但不建议，效率低，模板编译最好是写好build的时候编译
-            return h(Fragment,[h(Text,"aaa")])
+            let res = h(Fragment, [h('h1', null, proxy.name)])
+            console.log(res)
+            return res
+            // return h(Fragment,[h('h1', null,proxy.name)])
+            // return h('div',null,[
+            //     h('p',null,'aaa'),
+            //     h('p',null,'bbb')
+            // ])
         }
 
     }
+
+    render(h(VueComponent), app)
 </script>
 </body>
 </html>

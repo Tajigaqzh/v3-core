@@ -22,7 +22,7 @@ export const createVNode = (
 	////标识  位运算
 	let shapeFlag = isString(type)
 		? ShapeFlags.ELEMENT
-		: isObject(type)
+		: isObject(type)//是对象说明是组件
 		? ShapeFlags.STATEFUL_COMPONENT
 		: 0;
 	const vnode = {

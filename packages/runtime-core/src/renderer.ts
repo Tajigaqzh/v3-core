@@ -1,11 +1,26 @@
 //渲染 放在 runtime-core
-import {CreateAppFunction, createAppAPI} from "./apiCreateApp";
-import {NOOP, ShapeFlags} from "@vue/shared";
-import { effect } from "@vue/reactivity";
-import {CVnode, Text, VNode, isSameVNodeType, VNodeArrayChildren, Fragment} from "./vnode";
-import {createComponentInstance, setupComponent} from "./component";
-import {createApp} from "@vue/runtime-dom";
-
+import { CreateAppFunction, createAppAPI } from "./apiCreateApp";
+import { NOOP, ShapeFlags } from "@vue/shared";
+import {
+	effect,
+	reactive,
+	ReactiveEffect,
+	readonly,
+	shallowReactive,
+} from "@vue/reactivity";
+import {
+	CVnode,
+	Text,
+	VNode,
+	isSameVNodeType,
+	VNodeArrayChildren,
+	Fragment,
+} from "./vnode";
+import { createComponentInstance, setUpComponent } from "./component";
+import { createApp } from "@vue/runtime-dom";
+import { queueJob } from "./scheduler";
+import { log } from "node:console";
+import { updateProps } from "./componentProps";
 
 /**
  * 从技术上讲，渲染器节点可以是核心渲染器上下文中的任何对象
@@ -25,30 +40,28 @@ export type RootRenderFunction<HostElement = RendererElement> = (
 
 export type ElementNamespace = "svg" | "mathml" | undefined;
 
-export interface RendererElement extends RendererNode {
-}
+export interface RendererElement extends RendererNode {}
 
 //patch函数的类型声明
 type PatchFn = (
 	n1: VNode | null, // 为空表示初次渲染
 	n2: VNode,
 	container: RendererElement,
-	anchor?: RendererNode | null,//插入参考标识
+	anchor?: RendererNode | null, //插入参考标识
 	parentComponent?: any | null,
 	parentSuspense?: any | null,
 	namespace?: ElementNamespace,
 	slotScopeIds?: string[] | null,
-	optimized?: boolean,
-) => void
-type NextFn = (vnode: VNode) => RendererNode | null
-
+	optimized?: boolean
+) => void;
+type NextFn = (vnode: VNode) => RendererNode | null;
 
 type ProcessTextOrCommentFn = (
 	n1: VNode | null,
 	n2: VNode,
 	container: RendererElement,
-	anchor: RendererNode | null,
-) => void
+	anchor: RendererNode | null
+) => void;
 
 /**
  * render的参数类型声明
@@ -114,7 +127,6 @@ export interface Renderer<HostElement = RendererElement> {
 	createApp: CreateAppFunction<HostElement>;
 }
 
-
 function baseCreateRenderer<
 	HostNode = RendererNode,
 	HostElement = RendererElement
@@ -139,7 +151,6 @@ function baseCreateRenderer(
 		insertStaticContent: hostInsertStaticContent,
 	} = options;
 
-
 	// 渲染器
 	/**
 	 * 将虚拟节点渲染到dom中
@@ -163,25 +174,30 @@ function baseCreateRenderer(
 			patch(container._vnode || null, vnode, container);
 		}
 		container._vnode = vnode;
-	}
-
+	};
 
 	/**
 	 * patch，比对并挂载，diff算法
 	 */
-	const patch: PatchFn = (n1: VNode, n2: VNode, container, anchor = null) => {
+	const patch: PatchFn = (
+		n1: VNode,
+		n2: VNode,
+		container,
+		anchor = null,
+		parentComponent = null
+	) => {
 		if (n1 === n2) {
-			return
+			return;
 		}
 
 		//n1和n2是不是同一个元素，更新逻辑
 		if (n1 && !isSameVNodeType(n1, n2)) {
-			anchor = getNextHostNode(n1)
+			anchor = getNextHostNode(n1);
 			unmount(n1);
 			n1 = null;
 		}
 
-		const {type, shapeFlag} = n2
+		const { type, shapeFlag } = n2;
 
 		switch (type) {
 			case Text:
@@ -189,32 +205,202 @@ function baseCreateRenderer(
 				processText(n1, n2, container, anchor);
 				break;
 			// 	处理<></>的情况，也即vue3不用写根div
+			// 	vue2中必须有一个根节点，
 			case Fragment:
-				processFragment(n1, n2, container)
+				processFragment(n1, n2, container);
 				break;
 			default:
 				if (shapeFlag & ShapeFlags.ELEMENT) {
 					//div
 					//处理元素 =>加载组件 一样
 					processElement(n1, n2, container, anchor);
-				} else if (shapeFlag & ShapeFlags.STATEFUL_COMPONENT) {
+				} else if (shapeFlag & ShapeFlags.COMPONENT) {
 					//组件
-					// processComponent(n1, n2, container);
+					processComponent(n1, n2, container, anchor, parentComponent);
 				}
 				break;
 		}
-	}
+	};
+
+	/**
+	 * 处理组件
+	 * @param n1
+	 * @param n2
+	 * @param container
+	 * @param anchor
+	 */
+	const processComponent = (
+		n1: VNode,
+		n2: VNode,
+		container: RendererElement,
+		anchor,
+		parentComponent
+	) => {
+		if (n1 == null) {
+			mountComponent(n2, container, anchor, parentComponent);
+		} else {
+			// 组件的属性变化，或者插槽变化，
+			updateComponent(n1, n2, container, anchor);
+		}
+	};
+
+	/**
+	 * 挂载组件
+	 */
+	const mountComponent = (
+		initialVNode: VNode,
+		container: RendererElement,
+		anchor,
+		parentComponent
+	) => {
+		// 1.创建组件实例
+
+		const instance = createComponentInstance(initialVNode);
+
+		// 2. 启动组件，给实例赋值
+		setUpComponent(instance);
+
+		// 3.渲染组件，核心
+		setupRenderEffect(instance, container, anchor);
+	};
+
+	function updatePreRender(newInstance, oldInstance) {}
+	/**
+	 * 渲染核心
+	 * @param instance
+	 */
+	const setupRenderEffect = (instance, container, anchor) => {
+		const componentUpdateFn = () => {
+			// console.log("我被执行了");
+			// 组件要渲染的虚拟节点是render函数返回的结果
+			// 组件有自己的虚拟节点，返回的虚拟节点是subTree
+
+			if (!instance.isMounted) {
+				// 用户再取值的时候还要多加一层，比如proxy.props.a / proxy.attr.a /proxy.data.b
+				// 为了方便用户取值，用proxy代理一下
+				const subTree = instance.render.call(instance.proxy, instance.proxy); //暂时将proxy设置为状态
+				// 这里有问题render的this指向不应该是state
+
+				// 当调用render的时候会触发响应式的数据访问，进行effect的收集，所以数据变化的时候会重新触发
+				// subTree就是要渲染的虚拟节点
+				patch(null, subTree, container, anchor); //先渲染一次
+				instance.subTree = subTree; //记录第一次的subTree
+				// 完成挂载
+				instance.isMounted = true;
+			} else {
+				console.log("组件状态变化了");
+				// 在下次渲染前要更新属性，更新属性后再渲染，获取最新的虚拟dom
+
+				if (instance.next) {
+					//属性有更新
+
+					updatePreRender(instance, instance.next);
+				}
+				const prevSubTree = instance.subTree;
+				const nextSubTree = instance.render.call(instance.proxy, instance.proxy);
+
+				patch(prevSubTree as any, nextSubTree, container, anchor);
+				instance.subTree = nextSubTree;
+			}
+		};
+		// 把组件update函数放到ReactiveEffect中收集依赖
+		const effect = new ReactiveEffect(componentUpdateFn, NOOP, () => {
+			// 可以延迟调用componentFn，用一个队列存起来延迟更新
+			// 如果有重复的合并
+			/**
+			 * 批量更新
+			 */
+			queueJob(instance.update);
+			// 批处理，去重
+			// if (effect.dirty) {
+			// 	effect.run()
+			// }
+		}); //对应的effect
+		// effect.run()
+
+		const update = (instance.update = effect.run.bind(effect));
+		//
+		update();
+	};
+	/**
+	 * 更新组件
+	 * @param n1
+	 * @param n2
+	 * @param container
+	 */
+	const updateComponent = (
+		n1: VNode,
+		n2: VNode,
+		container: RendererElement,
+		anchor
+	) => {
+		console.log("我被执行了");
+		console.log(n1.component, n2.component);
+
+		const instance = (n2.component = n1.component);
+
+		// 内部props是响应式的，所以更新props就自动更新视图，vue2就是这么做的，缺点是此函数会走setupRenderEffect也会走，会触发多次
+
+		// instance.props.message = n2.props.message
+
+		// const oldProps = n1.props || {};
+		// const newProps = n2.props || {};
+		// updateProps(oldProps, newProps);
+		// 调用instance处理更新逻辑，统一更新入口
+
+		instance.next = n2;
+		// 要记住n2，复用props
+
+		// 如果需要更新的时候再更新
+		if (shouldComponentUpdate(n1, n2)) {
+			instance.update();
+		}
+		//
+	};
+
+	/**
+	 * 组件有没有变化
+	 * @param n1
+	 * @param n2
+	 * @returns
+	 */
+	const shouldComponentUpdate = (n1, n2) => {
+		const oldProps = n1.props;
+		const newProps = n2.props;
+
+		if (oldProps == newProps) {
+			return false;
+		}
+		return hasChange(oldProps, newProps);
+	};
+
+	const hasChange = (oldProps = {}, newProps = {}) => {
+		let oldKeys = Object.keys(oldProps);
+		let newKeys = Object.keys(newProps);
+
+		if (oldKeys.length !== newKeys.length) {
+			return false;
+		}
+
+		for (let i = 0; i < newKeys.length; i++) {
+			const key = newKeys[i];
+
+			if (newProps[key] !== oldProps[key]) {
+				return true;
+			}
+		}
+		return false;
+	};
 	/**
 	 * 获取下一个根兄弟节点，用于标记anchor
 	 * @param vnode
 	 */
-	const getNextHostNode: NextFn = vnode => {
+	const getNextHostNode: NextFn = (vnode) => {
 		if (vnode.shapeFlag & ShapeFlags.COMPONENT) {
-			return getNextHostNode(vnode.component!.subTree)
+			return getNextHostNode(vnode.component!.subTree);
 		}
-		return hostNextSibling((vnode.anchor || vnode.el)!)
-	}
-
+		return hostNextSibling((vnode.anchor || vnode.el)!);
+	};
 
 	/**
 	 * 处理文本
@@ -227,13 +413,13 @@ function baseCreateRenderer(
 			//  创建文本  渲染到页面
 			hostInsert((n2.el = hostCreateText(n2.children as string)), container);
 		} else {
-			let el = (n2.el = n1.el)
+			let el = (n2.el = n1.el);
 			if (n1.children === n2.children) {
-				return
+				return;
 			}
 			hostSetText(el, n2.children as string);
 		}
-	}
+	};
 
 	/**
 	 * 处理无根div的<></>情况
@@ -242,16 +428,14 @@ function baseCreateRenderer(
 	 * @param container
 	 */
 	const processFragment = (n1: VNode, n2: VNode, container: RendererElement) => {
-
 		if (n1 == null) {
 			// 直接挂载
-			mountChildren(n2.children as VNode[], container)
-		}else {
+			mountChildren(n2.children as VNode[], container);
+		} else {
 			// dom diff
-			patchKeyedChildren(n1.children,n2.children,container)
+			patchKeyedChildren(n1.children, n2.children, container);
 		}
-	}
-
+	};
 
 	/**
 	 * TODO - 处理元素
@@ -261,15 +445,19 @@ function baseCreateRenderer(
 	 * @param container
 	 * @param anchor
 	 */
-	const processElement = (n1: VNode, n2: VNode, container: RendererElement, anchor: RendererElement) => {
+	const processElement = (
+		n1: VNode,
+		n2: VNode,
+		container: RendererElement,
+		anchor: RendererElement
+	) => {
 		if (n1 == null) {
 			mountElement(n2, container, anchor, null);
 		} else {
 			//更新元素
 			patchElement(n1, n2, container, anchor);
 		}
-	}
-
+	};
 
 	/**
 	 * 递归遍历虚拟节点，将其变为真实节点
@@ -278,19 +466,22 @@ function baseCreateRenderer(
 	 * @param anchor
 	 * @param namespace
 	 */
-	const mountElement = (vnode: VNode,
-						  container: RendererElement,
-						  anchor: RendererNode | null,
-						  namespace: ElementNamespace) => {
+	const mountElement = (
+		vnode: VNode,
+		container: RendererElement,
+		anchor: RendererNode | null,
+		namespace: ElementNamespace
+	) => {
 		let el: RendererElement;
-		const {props, shapeFlag, children} = vnode;
+		const { props, shapeFlag, children } = vnode;
 
 		// 创建元素
 		el = vnode.el = hostCreateElement(
 			vnode.type as string,
 			namespace,
 			props && props.is,
-			props);
+			props
+		);
 
 		// 处理props
 		if (props) {
@@ -300,7 +491,7 @@ function baseCreateRenderer(
 		}
 
 		if (shapeFlag & ShapeFlags.TEXT_CHILDREN) {
-			hostSetElementText(el, children as string)
+			hostSetElementText(el, children as string);
 		}
 
 		if (shapeFlag & ShapeFlags.ARRAY_CHILDREN) {
@@ -308,8 +499,7 @@ function baseCreateRenderer(
 		}
 
 		hostInsert(el, container, anchor);
-
-	}
+	};
 
 	/**
 	 * 同一个元素比对
@@ -328,7 +518,6 @@ function baseCreateRenderer(
 		//比对  children
 		patchChildren(n1, n2, el);
 	};
-
 
 	/**
 	 * 比对双方的children
@@ -363,13 +552,12 @@ function baseCreateRenderer(
 		if (newShapeFlag & ShapeFlags.TEXT_CHILDREN) {
 			// 旧的是数组
 			if (prevShapeFlag & ShapeFlags.ARRAY_CHILDREN) {
-				unmountChildren(c1 as VNode[])
+				unmountChildren(c1 as VNode[]);
 			}
 			// 旧的是文本或空，新的是文本
 			if (c2 !== c1) {
-				hostSetElementText(container, c2 as string)
+				hostSetElementText(container, c2 as string);
 			}
-
 		} else {
 			// 老的是文本或者空或者数组
 			if (prevShapeFlag & ShapeFlags.ARRAY_CHILDREN) {
@@ -379,27 +567,26 @@ function baseCreateRenderer(
 					 */
 					patchKeyedChildren(c1, c2, container);
 				} else {
-					unmountChildren(c1 as VNode[])
+					unmountChildren(c1 as VNode[]);
 				}
 			} else {
 				// 	旧的儿子是文本或者空
 				// 	新的儿子是数组或空
 				if (prevShapeFlag & ShapeFlags.TEXT_CHILDREN) {
-					hostSetElementText(container, '')
+					hostSetElementText(container, "");
 				}
 				if (newShapeFlag & ShapeFlags.ARRAY_CHILDREN) {
-					mountChildren(c2 as VNode[], container)
+					mountChildren(c2 as VNode[], container);
 				}
 			}
 		}
 	};
 
-
 	const unmountChildren = (children: VNode[]) => {
 		for (let i = 0; i < children.length; i++) {
-			unmount(children[i])
+			unmount(children[i]);
 		}
-	}
+	};
 	/**
 	 * 比对儿子
 	 * @param c1
@@ -410,8 +597,8 @@ function baseCreateRenderer(
 		//vue2: 双指针   vue3:
 
 		let i = 0;
-		let e1 = c1.length - 1;//旧的最后一个索引
-		let e2 = c2.length - 1;//新的最后一个索引
+		let e1 = c1.length - 1; //旧的最后一个索引
+		let e2 = c2.length - 1; //新的最后一个索引
 
 		// 1.sync from start :头部比对    (1) 同一位置比对（两个元素不同 停止）   2那个数组没有 停止
 		// 旧的 <div> <p></p> <h1></h1>  </div>   新的 <div><p></p> <h2></h2></div>
@@ -455,7 +642,7 @@ function baseCreateRenderer(
 			// 	新的多,需要新增
 			while (i <= e2) {
 				const nextPos = e2 + 1;
-				const anchor = nextPos < c2.length ? (c2[nextPos].el) : null;
+				const anchor = nextPos < c2.length ? c2[nextPos].el : null;
 				// anchor 判断是在前面插入还是在后面插入，如果e2+1小于c2的长度，说明是在前面插入，否则是在后面插入
 				patch(null, c2[i], el, anchor);
 				i++;
@@ -479,17 +666,16 @@ function baseCreateRenderer(
 			 * a b [d c e h] f g ----->[3,2,4,0]
 			 */
 
-				//此时就要考虑复用节点
-			const s1 = i;//旧的需要变更的开始索引 s1 - e1  [c d e]
-			const s2 = i;//新的需要变更的开始索引 s2 - e2  [d c e h]
+			//此时就要考虑复用节点
+			const s1 = i; //旧的需要变更的开始索引 s1 - e1  [c d e]
+			const s2 = i; //新的需要变更的开始索引 s2 - e2  [d c e h]
 			const keyToNewIndexMap: Map<string | number | symbol, number> = new Map();
 
 			const toBePatched = e2 - s2 + 1; // 新的需要变更的长度，新的儿子需要有这么多个节点被patch
 
-			const newIndexToOldIndex = new Array(toBePatched).fill(0)
+			const newIndexToOldIndex = new Array(toBePatched).fill(0);
 			//[4,3,5,0]
 			//根据新的需要被patch的长度创建一个数组
-
 
 			// 以新的node的乱序的长度创建一个映射表，用旧的节点在新的乱序表中找，如果有就复用。没有就删除
 			for (let i = s2; i <= e2; i++) {
@@ -513,16 +699,16 @@ function baseCreateRenderer(
 					newIndexToOldIndex[newIndex - s2] = i + 1;
 
 					// 旧的有新的也有，复用,用老的节点去比对新的节点
-					patch(prevChild, c2[newIndex], el);//这里只是比较自己的的属性和儿子，并没有移动
+					patch(prevChild, c2[newIndex], el); //这里只是比较自己的的属性和儿子，并没有移动
 				}
 			}
 			// 考虑移动问题，newIndexToOldIndex = [4,3,5,0]，0就是新增
 			// console.log(newIndexToOldIndex)
 
 			const increasingNewIndexSequence = getLongestSubSequence(newIndexToOldIndex);
-			console.log(increasingNewIndexSequence)
+			// console.log(increasingNewIndexSequence)
 
-			let j = increasingNewIndexSequence.length - 1;//取出最后一个索引
+			let j = increasingNewIndexSequence.length - 1; //取出最后一个索引
 
 			/**
 			 * dom操作只能insertBefore，不能insertAfter，所以需要倒序插入，可以先插入新增的无法复用的节点，
@@ -567,12 +753,8 @@ function baseCreateRenderer(
 						// 元素需要移动
 						hostInsert(curNode.el, el, anchor);
 					}
-
 				}
-
 			}
-
-
 		}
 	};
 
@@ -596,9 +778,7 @@ function baseCreateRenderer(
 				}
 			}
 		}
-
-	}
-
+	};
 
 	/**
 	 * 挂载儿子
@@ -613,26 +793,24 @@ function baseCreateRenderer(
 			//创建 文本  创建元素
 			patch(null, child as VNode, el);
 		}
-	}
-
+	};
 
 	/**
 	 * 卸载
 	 * @param vnode
 	 */
 	const unmount = (vnode: VNode) => {
-		const {shapeFlag, type, children} = vnode;
+		const { shapeFlag, type, children } = vnode;
 		if (type === Fragment) {
-			return unmountChildren(children as VNode[])
+			return unmountChildren(children as VNode[]);
 		}
 		hostRemove(vnode.el);
-	}
-
+	};
 
 	return {
 		render,
-		createApp: createAppAPI(render)
-	}
+		createApp: createAppAPI(render),
+	};
 }
 
 /**
@@ -645,18 +823,18 @@ function getLongestSubSequence(arr: number[]): number[] {
 	const len = arr.length;
 	// 忽略数组为0的情况，为0说明是新增节点
 
-	const p = result.slice();//复制一份，存储上一个的索引
+	const p = result.slice(); //复制一份，存储上一个的索引
 
 	// 用来存储标记的索引，内容无所谓，主要是和数组的长度一致
 	for (let i = 0; i < len; i++) {
 		const arrI = arr[i];
 		if (arrI !== 0) {
-			let resultLastIndex = result[result.length - 1]
+			let resultLastIndex = result[result.length - 1];
 			//获取结果集中的最后一项，和arrI进行比较如果arrI大于resultLastIndex则直接push，
 			// 否则二分查找找到第一个比arrI大的那一项，用arrI替换
 			if (arr[resultLastIndex] < arrI) {
 				result.push(i);
-				p[i] = resultLastIndex;//记录上一次最后一项的索引
+				p[i] = resultLastIndex; //记录上一次最后一项的索引
 				continue;
 			}
 			//     如果arrI小于resultLastIndex则二分查找找到第一个比arrI大的那一项，用arrI替换
@@ -664,7 +842,7 @@ function getLongestSubSequence(arr: number[]): number[] {
 			let left = 0;
 			let right = result.length - 1;
 			while (left < right) {
-				const mid = (left + right) >> 1
+				const mid = (left + right) >> 1;
 
 				if (arr[result[mid]] < arrI) {
 					left = mid + 1;
@@ -672,27 +850,24 @@ function getLongestSubSequence(arr: number[]): number[] {
 					right = mid;
 				}
 			}
-			p[i] = result[left - 1];//记录，记录前一项的索引
+			p[i] = result[left - 1]; //记录，记录前一项的索引
 
 			//start和end会重合，直接用当前的索引替换
 			result[left] = i;
 		}
-
 	}
 
 	// 实现倒序追踪
-	let i = result.length;//总长度
+	let i = result.length; //总长度
 	let last = result[result.length - 1];
 
 	while (i-- > 0) {
-		result[i] = last;//最后一项是正确的
-		last = p[last];//通过最后一项找到对应的结果，将他作为最后一项来进行追踪
+		result[i] = last; //最后一项是正确的
+		last = p[last]; //通过最后一项找到对应的结果，将他作为最后一项来进行追踪
 	}
 
 	return result;
 }
-
-
 
 /**
  * createRenderer函数接受两个通用参数HostNode和HostElement，它们对应于主机环境中的Node和Element类型。
@@ -706,10 +881,6 @@ export function createRenderer<
 >(options: RendererOptions<HostNode, HostElement>) {
 	return baseCreateRenderer<HostNode, HostElement>(options);
 }
-
-
-
-
 
 // 给组件 创建一个instance  添加相关信息
 //  处理setup  中context  有四参数

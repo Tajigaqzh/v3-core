@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<title>update</title>
+	</head>
+	<body>
+		<div id="app"></div>
+		<script type="module">
+			import {
+				render,
+				Fragment,
+				h,
+				Text,
+			} from "../dist/runtime-dom.esm-bundler.js";
+
+			const childComp = {
+				props: {
+					message: String,
+				},
+				data() {
+					return {};
+				},
+				render(proxy) {
+					console.log();
+					return h(Text, "子组件" + proxy.message);
+				},
+			};
+			// instance缓存组件
+			const VueComponent = {
+				props: {
+					a: Number,
+				},
+				data() {
+					return {
+						flags: true,
+					};
+				},
+				render(proxy) {
+					// setTimeout(() => {
+					// 	proxy.name = "1111";
+					// }, 2000);
+					return h(Fragment, [
+						h("button", { onClick: () => (this.flags = !this.flags) }, "更新组件"),
+						h(childComp, { message: this.flags ? "success" : "fail" }),
+					]);
+				},
+			};
+
+			render(h(VueComponent, { a: 1, b: 2, c: 3 }), app);
+		</script>
+	</body>
+</html>

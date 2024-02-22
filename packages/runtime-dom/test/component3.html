@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<title>component</title>
+	</head>
+	<body>
+		<div id="app"></div>
+		<script type="module">
+			import { render, Fragment, h } from "../dist/runtime-dom.esm-bundler.js";
+
+			const ChildComponent = {
+				props: {
+					message: String,
+				},
+				render(proxy) {
+					// return h("div", null, this.message);
+                    return h("div", null, '11');
+				},
+			};
+			// 组件更新
+			const VueComponent = {
+	
+				data() {
+					//标记成函数，如果是一个对象就可能会涉及到这个对象被共享给多个组件使用，没有法实现私有性
+					return {
+						name: 1,
+						flags: true,
+					};
+				},
+				render(proxy) {
+
+                    // let child  =h(ChildComponent, { message: this.flags ? "ok!!" : "error" },'ss');
+                    // console.log(child);
+					//
+					return h(Fragment,  [
+						// h("button", "更新组件"),
+						h(ChildComponent, { message: this.flags ? "ok!!" : "error" },'ss'),
+                        h('h1',"111")
+					]);
+				},
+			};
+
+			render(h(VueComponent,null), app);
+		</script>
+	</body>
+</html>

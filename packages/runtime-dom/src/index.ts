@@ -12,7 +12,7 @@ import { extend, isFunction, isString } from "@vue/shared";
 export * from "@vue/runtime-core";
 
 
-import type {VueText,Fragment,Static,Comment} from "@vue/runtime-core";
+import {Text,Fragment,Static,Comment} from "@vue/runtime-core";
 
 // export type {Text,Fragment,Static,Comment}
 

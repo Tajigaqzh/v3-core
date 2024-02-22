@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <title>component4</title>
+</head>
+<body>
+<div id="app"></div>
+<script type="module">
+    import {render, Fragment, h} from "../dist/runtime-dom.esm-bundler.js";
+
+    // 组件更新
+    const VueComponent = {
+        props: {
+            a: Number
+        },
+        data() {
+            //标记成函数，如果是一个对象就可能会涉及到这个对象被共享给多个组件使用，没有法实现私有性
+            return {
+                name: "测试代理",
+                flags: true,
+            };
+        },
+        render(proxy) {
+
+            console.log(proxy)
+            console.log("attr",proxy.$attrs)
+            setTimeout(() => {
+                // 这里通过代理把proxy.data.name代理为proxy.name，方便用户访问
+                // 把proxy.props.a代理为proxy.a
+
+                proxy.name = "1111"
+            }, 2000)
+            return h(Fragment, [h('h1', proxy.name),h('h2',proxy.a)]);
+        },
+    };
+
+    render(h(VueComponent, {a: 1, b: 2, c: 3}), app);
+</script>
+</body>
+</html>
